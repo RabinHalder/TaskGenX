@@ -7,6 +7,7 @@ const submissionSchema = new mongoose.Schema(
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
 
     proofFileId: { type: String, default: '' },
+    proofHash: { type: String, default: '' },
     proofNote: { type: String, default: '' },
     rejectReason: { type: String, default: '' },
 
@@ -20,5 +21,6 @@ const submissionSchema = new mongoose.Schema(
 submissionSchema.index({ taskId: 1, userId: 1 }, { unique: true });
 submissionSchema.index({ status: 1, createdAt: -1 });
 submissionSchema.index({ userId: 1, createdAt: -1 });
+submissionSchema.index({ proofHash: 1 });
 
 module.exports = mongoose.model('Submission', submissionSchema);
