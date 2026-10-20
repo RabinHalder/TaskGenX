@@ -3,7 +3,7 @@ function round2(n) {
 }
 
 function maskUserId(id) {
-  const s = String(id);
+  const s = String(id || '');
   if (s.length <= 4) return s;
   return s.slice(0, 2) + '•'.repeat(s.length - 4) + s.slice(-2);
 }
@@ -17,10 +17,18 @@ function maskUpi(upi) {
   return name.slice(0, 2) + '••••' + handle;
 }
 
-function monthKey(date) {
-  const d = date || new Date();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  return d.getFullYear() + '-' + m;
+// Day key in Indian time (YYYY-MM-DD)
+function dayKeyIST(date) {
+  const base = date ? date.getTime() : Date.now();
+  return new Date(base + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-module.exports = { round2, maskUserId, maskUpi, monthKey };
+function startOfTodayIST() {
+  return new Date(dayKeyIST() + 'T00:00:00+05:30');
+}
+
+function monthKey(date) {
+  return dayKeyIST(date).slice(0, 7);
+}
+
+module.exports = { round2, maskUserId, maskUpi, dayKeyIST, startOfTodayIST, monthKey };
