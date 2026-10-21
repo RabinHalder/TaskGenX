@@ -7,9 +7,18 @@ Views.profile = async function (box) {
   let page = 1;
   let totalPages = 1;
 
-  function sw(id, on, label) {
-    return '<div class="row between sw-row"><span>' + esc(label) + '</span>'
+  function sw(id, on, label, hint) {
+    return '<div class="row between sw-row"><div><div>' + esc(label) + '</div>'
+      + (hint ? '<div class="small muted">' + esc(hint) + '</div>' : '') + '</div>'
       + '<label class="switch"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + '><i></i></label></div>';
+  }
+
+  function faq() {
+    let out = '';
+    for (let i = 1; i <= 7; i++) {
+      out += '<details class="faq"><summary>' + esc(t('faq.q' + i)) + '</summary><p>' + esc(t('faq.a' + i)) + '</p></details>';
+    }
+    return out;
   }
 
   box.innerHTML =
@@ -31,6 +40,7 @@ Views.profile = async function (box) {
     + (p.monthlyWithdrawLimit > 0 ? money(p.withdrawnThisMonth) + ' / ' + money(p.monthlyWithdrawLimit) : esc(t('prof.noLimit'))) + '</div>'
 
     + '<div class="card"><div class="bold">' + esc(t('prof.details')) + '</div>'
+    + '<p class="hint mt">' + esc(t('prof.detailsHint')) + '</p>'
     + '<label class="label">' + esc(t('prof.upi')) + '</label><input class="input" id="pf-upi" value="' + esc(p.upiId) + '" placeholder="name@bank">'
     + '<label class="label">' + esc(t('prof.holder')) + '</label><input class="input" id="pf-name" value="' + esc(p.withdrawName) + '">'
     + '<label class="label">' + esc(t('prof.wallet')) + '</label><input class="input" id="pf-wallet" inputmode="numeric" maxlength="10" value="' + esc(p.walletNumber) + '">'
@@ -41,12 +51,14 @@ Views.profile = async function (box) {
     + '<div id="pf-lang">' + UI.tabs([{ k: 'en', label: 'English' }, { k: 'bn', label: 'বাংলা' }], p.language) + '</div>'
     + '<label class="label">' + esc(t('prof.theme')) + '</label>'
     + '<div id="pf-theme">' + UI.tabs([{ k: 'light', label: t('prof.light') }, { k: 'dark', label: t('prof.dark') }], p.theme) + '</div>'
-    + sw('pf-notif', p.notificationsOn, t('prof.notifications'))
-    + sw('pf-hide', p.hideInClub, t('prof.hideClub'))
+    + sw('pf-notif', p.notificationsOn, t('prof.notifications'), t('prof.notifHint'))
+    + sw('pf-hide', p.hideInClub, t('prof.hideClub'), t('prof.hideClubHint'))
     + '</div>'
 
+    + '<div class="section-title">' + esc(t('prof.help')) + '</div>'
+    + faq()
     + (/^https?:\/\//i.test(p.supportLink || '')
-      ? '<button class="btn secondary block mb" id="pf-support">' + Icon('message', 18) + esc(t('prof.support')) + '</button>' : '')
+      ? '<button class="btn secondary block mt mb" id="pf-support">' + Icon('message', 18) + esc(t('prof.support')) + '</button>' : '')
 
     + '<div class="section-title">' + esc(t('prof.history')) + '</div>'
     + '<div class="list" id="pf-tx"></div>'
