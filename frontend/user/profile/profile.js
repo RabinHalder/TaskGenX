@@ -46,7 +46,7 @@ Views.profile = async function (box) {
     + '</div>'
 
     + (/^https?:\/\//i.test(p.supportLink || '')
-      ? '<button class="btn secondary block mb" id="pf-support">💬 ' + esc(t('prof.support')) + '</button>' : '')
+      ? '<button class="btn secondary block mb" id="pf-support">' + Icon('message', 18) + esc(t('prof.support')) + '</button>' : '')
 
     + '<div class="section-title">' + esc(t('prof.history')) + '</div>'
     + '<div class="list" id="pf-tx"></div>'
