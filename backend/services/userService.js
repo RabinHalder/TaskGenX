@@ -54,12 +54,15 @@ async function getOrCreateUser(tgUser, startParam, settings) {
   if (referrer) {
     await User.updateOne({ telegramId: referrer.telegramId }, { $inc: { referralsCount: 1 } });
     await checkLevelUp(referrer.telegramId);
-    notifyUser(referrer.telegramId, '🎉 A new user joined with your referral link: ' + user.fullName);
+    notifyUser(referrer.telegramId, {
+      en: '🎉 New referral\n\n' + user.fullName + ' joined using your link.',
+      bn: '🎉 নতুন রেফারেল\n\n' + user.fullName + ' আপনার লিংক দিয়ে যোগ দিয়েছেন।'
+    });
   }
 
   const bonus = Number(settings && settings.bonus ? settings.bonus.signup : 0) || 0;
   if (bonus > 0) {
-    const updated = await creditUser(telegramId, bonus, 'signup_bonus', 'Signup bonus');
+    const updated = await creditUser(telegramId, bonus, 'signup_bonus', 'Welcome bonus');
     if (updated) {
       await User.updateOne({ telegramId: telegramId }, { $set: { signupBonusGiven: true } });
       return User.findOne({ telegramId: telegramId });
