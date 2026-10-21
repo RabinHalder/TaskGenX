@@ -4,20 +4,34 @@
   window.State = State;
   window.Views = window.Views || {};
 
+  var splashStart = Date.now();
+
   var USER_TABS = [
-    { k: 'home', icon: '🏠', label: 'nav.home' },
-    { k: 'club', icon: '🏆', label: 'nav.club' },
-    { k: 'task', icon: '✅', label: 'nav.task' },
-    { k: 'referral', icon: '👥', label: 'nav.referral' },
-    { k: 'profile', icon: '👤', label: 'nav.profile' }
+    { k: 'home', icon: 'home', label: 'nav.home' },
+    { k: 'club', icon: 'award', label: 'nav.club' },
+    { k: 'task', icon: 'checkSquare', label: 'nav.task' },
+    { k: 'referral', icon: 'users', label: 'nav.referral' },
+    { k: 'profile', icon: 'user', label: 'nav.profile' }
   ];
   var ADMIN_TABS = [
-    { k: 'dashboard', icon: '📊', label: 'Dashboard' },
-    { k: 'users', icon: '👥', label: 'Users' },
-    { k: 'tasks', icon: '🧩', label: 'Tasks' },
-    { k: 'broadcast', icon: '📣', label: 'Broadcast' },
-    { k: 'settings', icon: '⚙️', label: 'Settings' }
+    { k: 'dashboard', icon: 'barChart', label: 'Dashboard' },
+    { k: 'users', icon: 'users', label: 'Users' },
+    { k: 'tasks', icon: 'clipboard', label: 'Tasks' },
+    { k: 'broadcast', icon: 'send', label: 'Broadcast' },
+    { k: 'settings', icon: 'sliders', label: 'Settings' }
   ];
+
+  function hideSplash() {
+    var el = document.getElementById('splash');
+    if (!el) return;
+    var wait = Math.max(0, 700 - (Date.now() - splashStart));
+    setTimeout(function () {
+      el.classList.add('hide');
+      setTimeout(function () {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 600);
+    }, wait);
+  }
 
   function applyTheme(theme) {
     var v = theme === 'dark' ? 'dark' : 'light';
@@ -25,8 +39,8 @@
     try { localStorage.setItem('tgx_theme', v); } catch (e) {}
     try {
       if (tg) {
-        tg.setHeaderColor(v === 'dark' ? '#0d111f' : '#f3f5fb');
-        tg.setBackgroundColor(v === 'dark' ? '#0d111f' : '#f3f5fb');
+        tg.setHeaderColor(v === 'dark' ? '#0b0f1d' : '#f4f6fc');
+        tg.setBackgroundColor(v === 'dark' ? '#0b0f1d' : '#f4f6fc');
       }
     } catch (e) {}
   }
@@ -53,13 +67,20 @@
     document.getElementById('nav').innerHTML = '';
     var code = err && err.code;
     var msg = code === 'UNAUTHORIZED' ? t('err.telegram') : (err && err.message) || t('err.generic');
-    var icon = code === 'MAINTENANCE' ? '🛠️' : code === 'BANNED' ? '🚫' : '⚠️';
+    var icon = code === 'MAINTENANCE' ? 'tool' : code === 'BANNED' ? 'slash' : 'alert';
     var canRetry = code !== 'BANNED' && code !== 'MAINTENANCE' && code !== 'UNAUTHORIZED';
     document.getElementById('view').innerHTML =
-      '<div class="full-msg"><div class="big">' + icon + '</div><p>' + UI.esc(msg) + '</p>'
+      '<div class="full-msg"><div class="big">' + Icon(icon, 56) + '</div><p>' + UI.esc(msg) + '</p>'
       + (canRetry ? '<button class="btn" id="fm-retry">' + UI.esc(t('common.retry')) + '</button>' : '') + '</div>';
     var rb = document.getElementById('fm-retry');
     if (rb) rb.onclick = boot;
+    hideSplash();
+  }
+
+  function togglePanel() {
+    State.panel = State.panel === 'admin' ? 'user' : 'admin';
+    State.tab = State.panel === 'admin' ? 'dashboard' : 'home';
+    render();
   }
 
   function renderTop() {
@@ -70,13 +91,12 @@
       '<div class="avatar-btn" id="tb-avatar">' + UI.avatar(u) + '</div>'
       + '<div class="tb-text"><div class="tb-name">' + UI.esc(u.name) + '</div>'
       + '<div class="tb-sub">' + (admin ? 'Admin panel' : UI.esc(State.home.app.name)) + '</div></div>'
-      + (u.isAdmin ? '<span class="badge ' + (admin ? 'warn' : 'ok') + '">' + (admin ? 'ADMIN' : '⇄') + '</span>' : '');
+      + (u.isAdmin
+        ? '<button class="tb-switch" id="tb-switch">' + Icon('repeat', 14) + '<span>' + (admin ? 'User' : 'Admin') + '</span></button>'
+        : '');
     if (u.isAdmin) {
-      document.getElementById('tb-avatar').onclick = function () {
-        State.panel = admin ? 'user' : 'admin';
-        State.tab = State.panel === 'admin' ? 'dashboard' : 'home';
-        render();
-      };
+      document.getElementById('tb-avatar').onclick = togglePanel;
+      document.getElementById('tb-switch').onclick = togglePanel;
     }
   }
 
@@ -87,7 +107,7 @@
     nav.innerHTML = tabs.map(function (x) {
       var label = admin ? x.label : t(x.label);
       return '<button data-k="' + x.k + '" class="' + (x.k === State.tab ? 'on' : '') + '">'
-        + '<span class="ic">' + x.icon + '</span><span class="lb">' + UI.esc(label) + '</span></button>';
+        + '<span class="ic">' + Icon(x.icon, 22) + '</span><span class="lb">' + UI.esc(label) + '</span></button>';
     }).join('');
     Array.prototype.forEach.call(nav.querySelectorAll('button'), function (b) {
       b.onclick = function () {
@@ -146,6 +166,7 @@
     State.panel = 'user';
     State.tab = 'home';
     render();
+    hideSplash();
   }
 
   window.App = {
