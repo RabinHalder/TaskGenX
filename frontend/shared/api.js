@@ -25,8 +25,16 @@
     try { json = await res.json(); } catch (e) { json = null; }
 
     if (!res.ok || !json || json.success === false) {
-      var err = new Error((json && json.message) || t('err.generic'));
-      err.code = (json && json.code) || 'ERROR';
+      var code = (json && json.code) || 'ERROR';
+      var message = (json && json.message) || t('err.generic');
+
+      // Show a friendly, translated message for known user-side errors
+      if (path.indexOf('/api/user') === 0 && I18N.has('e.' + code)) {
+        message = t('e.' + code);
+      }
+
+      var err = new Error(message);
+      err.code = code;
       err.status = res.status;
       throw err;
     }
