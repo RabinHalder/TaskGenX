@@ -15,8 +15,8 @@ async function payReferralCommission(userId, reward) {
   if (!user) return;
 
   const tiers = [
-    { id: user.referredBy, pct: Number(settings.referral.level1Percent) || 0, label: 'Level 1' },
-    { id: user.referredByLevel2, pct: Number(settings.referral.level2Percent) || 0, label: 'Level 2' }
+    { id: user.referredBy, pct: Number(settings.referral.level1Percent) || 0, label: 'Level 1', labelBn: 'লেভেল ১' },
+    { id: user.referredByLevel2, pct: Number(settings.referral.level2Percent) || 0, label: 'Level 2', labelBn: 'লেভেল ২' }
   ];
 
   for (const t of tiers) {
@@ -29,7 +29,10 @@ async function payReferralCommission(userId, reward) {
     });
     if (updated) {
       await User.updateOne({ telegramId: t.id }, { $inc: { totalReferralEarned: amount } });
-      notifyUser(t.id, '💰 You earned ₹' + amount + ' referral commission (' + t.label + ').');
+      notifyUser(t.id, {
+        en: '💰 Referral commission\n\nYou earned ₹' + amount + ' (' + t.label + ') from your referral’s completed task.',
+        bn: '💰 রেফারেল কমিশন\n\nআপনার রেফারেলের সম্পন্ন টাস্ক থেকে আপনি ₹' + amount + ' (' + t.labelBn + ') কমিশন পেয়েছেন।'
+      });
     }
   }
 }
@@ -55,17 +58,23 @@ async function approveSubmission(submissionId, adminId) {
   await payReferralCommission(sub.userId, reward);
   await checkLevelUp(sub.userId);
 
-  notifyUser(sub.userId, '✅ Your task "' + (task ? task.title : '') + '" was approved. +₹' + reward);
+  const title = task ? task.title : '';
+  notifyUser(sub.userId, {
+    en: '✅ Task approved\n\n“' + title + '” was approved. ₹' + reward + ' has been added to your balance.',
+    bn: '✅ টাস্ক অনুমোদিত\n\n“' + title + '” অনুমোদিত হয়েছে। আপনার ব্যালেন্সে ₹' + reward + ' যোগ হয়েছে।'
+  });
   return sub;
 }
 
 async function rejectSubmission(submissionId, adminId, reason) {
+  const cleanReason = String(reason || '').slice(0, 300);
+
   const sub = await Submission.findOneAndUpdate(
     { _id: submissionId, status: 'pending' },
     {
       $set: {
         status: 'rejected',
-        rejectReason: String(reason || '').slice(0, 300),
+        rejectReason: cleanReason,
         reviewedBy: adminId,
         reviewedAt: new Date()
       }
@@ -77,10 +86,11 @@ async function rejectSubmission(submissionId, adminId, reason) {
   await Task.updateOne({ _id: sub.taskId, filledCount: { $gt: 0 } }, { $inc: { filledCount: -1 } });
 
   const task = await Task.findById(sub.taskId);
-  notifyUser(
-    sub.userId,
-    '❌ Your task "' + (task ? task.title : '') + '" was rejected.' + (reason ? '\nReason: ' + reason : '') + '\nYou can submit a new screenshot.'
-  );
+  const title = task ? task.title : '';
+  notifyUser(sub.userId, {
+    en: '❌ Task not approved\n\n“' + title + '” was not approved.' + (cleanReason ? '\nReason: ' + cleanReason : '') + '\n\nYou can submit a new screenshot from the Task tab.',
+    bn: '❌ টাস্ক অনুমোদিত হয়নি\n\n“' + title + '” অনুমোদিত হয়নি।' + (cleanReason ? '\nকারণ: ' + cleanReason : '') + '\n\nটাস্ক ট্যাব থেকে আপনি নতুন স্ক্রিনশট জমা দিতে পারবেন।'
+  });
   return sub;
 }
 
