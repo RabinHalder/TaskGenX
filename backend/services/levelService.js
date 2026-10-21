@@ -21,7 +21,11 @@ async function checkLevelUp(userId) {
   if (target > user.level) {
     await User.updateOne({ telegramId: userId, level: { $lt: target } }, { $set: { level: target } });
     const lv = levels.find((l) => l.level === target);
-    notifyUser(userId, '🏆 Level up! You are now ' + (lv ? lv.name : 'Level ' + target) + '.');
+    const name = lv ? lv.name : 'Level ' + target;
+    notifyUser(userId, {
+      en: '🏆 Level up!\n\nCongratulations, you are now ' + name + '. Enjoy your new benefits.',
+      bn: '🏆 লেভেল আপ!\n\nঅভিনন্দন, আপনি এখন ' + name + ' লেভেলে। নতুন সুবিধা উপভোগ করুন।'
+    });
     return target;
   }
 
