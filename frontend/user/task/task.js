@@ -83,12 +83,12 @@ Views.task = async function (box) {
     const canSubmit = d.isOpen && (!d.myStatus || d.myStatus === 'rejected');
     let status = '';
     if (d.myStatus === 'approved') {
-      status = '<div class="note ok">✅ ' + esc(t('task.done')) + '</div>';
+      status = '<div class="note ok row gap">' + Icon('checkCircle', 18) + '<span>' + esc(t('task.done')) + '</span></div>';
     } else if (d.myStatus === 'pending') {
-      status = '<div class="note">⏳ ' + esc(t('task.waiting')) + '</div>';
+      status = '<div class="note row gap">' + Icon('clock', 18) + '<span>' + esc(t('task.waiting')) + '</span></div>';
     } else if (d.myStatus === 'rejected') {
-      status = '<div class="note bad">❌ ' + esc(t('task.rejected'))
-        + (d.rejectReason ? ' — ' + esc(t('task.reason')) + ': ' + esc(d.rejectReason) : '') + '</div>';
+      status = '<div class="note bad row gap">' + Icon('xCircle', 18) + '<span>' + esc(t('task.rejected'))
+        + (d.rejectReason ? ' — ' + esc(t('task.reason')) + ': ' + esc(d.rejectReason) : '') + '</span></div>';
     } else if (!d.isOpen) {
       status = '<div class="note">' + esc(t('task.closed')) + '</div>';
     }
@@ -97,7 +97,7 @@ Views.task = async function (box) {
     const form = canSubmit
       ? '<div class="card"><div class="bold mb">' + esc(d.myStatus === 'rejected' ? t('task.resubmit') : t('task.upload')) + '</div>'
         + '<input type="file" id="tk-file" accept="image/*" hidden>'
-        + '<button class="btn secondary block" id="tk-pick">📷 ' + esc(t('task.choose')) + '</button>'
+        + '<button class="btn secondary block" id="tk-pick">' + Icon('camera', 18) + esc(t('task.choose')) + '</button>'
         + '<img id="tk-prev" class="proof hidden" alt="">'
         + '<input class="input mt" id="tk-note" maxlength="200" placeholder="' + esc(t('task.note')) + '">'
         + '<button class="btn block mt" id="tk-send">' + esc(t('task.submit')) + '</button></div>'
@@ -113,9 +113,13 @@ Views.task = async function (box) {
         ? '<div class="bold mt">' + esc(t('task.instructions')) + '</div><ol class="steps">'
           + instructions.map((s) => '<li>' + esc(s) + '</li>').join('') + '</ol>'
         : '')
-      + (d.expiresAt ? '<div class="small muted mt">⏱ ' + esc(t('task.expires')) + ': ' + esc(UI.dateStr(d.expiresAt)) + '</div>' : '')
+      + (d.expiresAt
+        ? '<div class="small muted mt row gap" style="gap:6px">' + Icon('clock', 14) + '<span>' + esc(t('task.expires')) + ': ' + esc(UI.dateStr(d.expiresAt)) + '</span></div>'
+        : '')
       + (d.slotsLeft !== null ? '<div class="small muted">' + esc(t('task.slots', { n: d.slotsLeft })) + '</div>' : '')
-      + (/^https?:\/\//i.test(d.link || '') ? '<button class="btn secondary block mt" id="tk-link">🔗 ' + esc(t('task.openLink')) + '</button>' : '')
+      + (/^https?:\/\//i.test(d.link || '')
+        ? '<button class="btn secondary block mt" id="tk-link">' + Icon('link', 18) + esc(t('task.openLink')) + '</button>'
+        : '')
       + '</div>' + status + form;
 
     box.querySelector('#tk-back').onclick = () => { tab = 'tasks'; frame(); showList(); };
