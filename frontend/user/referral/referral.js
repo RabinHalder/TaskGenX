@@ -7,8 +7,8 @@ Views.referral = async function (box) {
 
   const linkBlock = d.link
     ? '<div class="linkbox">' + esc(d.link) + '</div>'
-      + '<div class="row gap mt"><button class="btn block" id="rf-copy">' + esc(t('common.copy')) + '</button>'
-      + '<button class="btn secondary block" id="rf-share">' + esc(t('common.share')) + '</button></div>'
+      + '<div class="row gap mt"><button class="btn block" id="rf-copy">' + Icon('copy', 16) + esc(t('common.copy')) + '</button>'
+      + '<button class="btn secondary block" id="rf-share">' + Icon('share', 16) + esc(t('common.share')) + '</button></div>'
     : '<div class="note">' + esc(t('ref.noLink')) + '</div>'
       + '<div class="bold">' + esc(t('ref.code')) + ': ' + esc(d.referralCode) + '</div>';
 
@@ -29,7 +29,7 @@ Views.referral = async function (box) {
     : UI.empty(t('ref.noneComm'));
 
   box.innerHTML =
-    '<div class="h1">👥 ' + esc(t('ref.title')) + '</div>'
+    '<div class="h1 row gap">' + Icon('users', 24) + '<span>' + esc(t('ref.title')) + '</span></div>'
     + '<div class="card"><div class="bold mb">' + esc(t('ref.yourLink')) + '</div>' + linkBlock
     + '<div class="small muted mt">' + esc(t('ref.how', { p1: d.level1Percent, p2: d.level2Percent })) + '</div></div>'
     + '<div class="grid2">'
