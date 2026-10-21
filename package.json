@@ -1,0 +1,21 @@
+{
+  "name": "taskgenx",
+  "version": "1.0.0",
+  "description": "TaskGenX - Telegram Mini App and bot for task-to-earn",
+  "main": "backend/server.js",
+  "private": true,
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "mongoose": "^8.5.1",
+    "multer": "^1.4.5-lts.1"
+  }
+}
