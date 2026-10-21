@@ -5,14 +5,15 @@ Views.club = async function (box) {
   let type = 'all';
 
   box.innerHTML =
-    '<div class="h1 row gap">' + Icon('award', 24) + '<span>' + esc(t('club.title')) + '</span></div>'
+    '<div class="row between"><div class="h1">' + esc(t('club.title')) + '</div>'
+    + '<div class="live-head"><span class="live-dot"></span>' + esc(t2('club.live')) + '</div></div>'
     + '<div class="muted small mb">' + esc(t('club.sub')) + '</div>'
     + UI.tabs([
       { k: 'all', label: t('club.all') },
       { k: 'deposit', label: t('club.deposits') },
       { k: 'withdraw', label: t('club.withdrawals') }
     ], type)
-    + '<div id="club-list">' + UI.loader() + '</div>'
+    + '<div id="club-list">' + UI.skeleton('rows', 6) + '</div>'
     + '<p class="hint">' + esc(t('club.privacy')) + '</p>';
 
   UI.bindTabs(box, (k) => { type = k; load(); });
@@ -20,20 +21,21 @@ Views.club = async function (box) {
   function row(it) {
     const dep = it.type === 'deposit';
     const sub = [it.userIdMasked ? 'ID ' + it.userIdMasked : '', it.destinationMasked || ''].filter(Boolean).join(' · ');
-    return '<div class="item"><div class="ico ' + (dep ? 'in' : 'out') + '">' + Icon(dep ? 'arrowDownLeft' : 'arrowUpRight', 18) + '</div>'
+    return '<div class="item">' + UI.avatarMini(it.name, 42)
       + '<div class="mid"><div class="t">' + esc(it.name) + '</div>'
       + '<div class="s">' + esc(dep ? t('club.deposited') : t('club.withdrew')) + (sub ? ' · ' + esc(sub) : '') + '</div></div>'
-      + '<div class="r"><div class="t ' + (dep ? 'pos' : '') + '">' + UI.money(it.amount) + '</div>'
-      + '<div class="s">' + esc(UI.timeAgo(it.time)) + '</div></div></div>';
+      + '<div class="r"><div class="reward-pill" style="' + (dep ? '' : 'background:rgba(82,102,244,.13);color:var(--brand)') + '">'
+      + (dep ? '+' : '') + UI.money(it.amount) + '</div>'
+      + '<div class="s" style="margin-top:4px">' + esc(UI.timeAgo(it.time)) + '</div></div></div>';
   }
 
   async function load() {
     const list = box.querySelector('#club-list');
-    list.innerHTML = UI.loader();
+    list.innerHTML = UI.skeleton('rows', 6);
     try {
       const data = await api('/api/user/club?type=' + type);
-      if (!data.enabled) { list.innerHTML = UI.empty(t('club.off')); return; }
-      if (!data.items.length) { list.innerHTML = UI.empty(t('club.none')); return; }
+      if (!data.enabled) { list.innerHTML = UI.emptyState('inbox', t('club.off'), ''); return; }
+      if (!data.items.length) { list.innerHTML = UI.emptyState('activity', t2('es.club'), t('club.none')); return; }
       list.innerHTML = '<div class="list">' + data.items.map(row).join('') + '</div>';
     } catch (e) {
       list.innerHTML = UI.empty(e.message);
