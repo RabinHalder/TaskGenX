@@ -28,7 +28,10 @@ async function settleDeposit(orderId, rawStatus) {
       { telegramId: tx.userId },
       { $inc: { balance: tx.netAmount, totalDeposited: tx.amount } }
     );
-    notifyUser(tx.userId, '✅ Deposit of ₹' + tx.amount + ' successful. ₹' + tx.netAmount + ' added to your balance.');
+    notifyUser(tx.userId, {
+      en: '✅ Deposit successful\n\nWe received ₹' + tx.amount + '. ₹' + tx.netAmount + ' has been added to your balance.',
+      bn: '✅ ডিপোজিট সফল হয়েছে\n\n₹' + tx.amount + ' পাওয়া গেছে। আপনার ব্যালেন্সে ₹' + tx.netAmount + ' যোগ হয়েছে।'
+    });
     return true;
   }
 
@@ -38,7 +41,12 @@ async function settleDeposit(orderId, rawStatus) {
       { $set: { status: 'failed', providerStatus: String(rawStatus), completedAt: new Date() } },
       { new: true }
     );
-    if (tx) notifyUser(tx.userId, '❌ Your deposit of ₹' + tx.amount + ' was not completed.');
+    if (tx) {
+      notifyUser(tx.userId, {
+        en: '❌ Deposit not completed\n\nYour payment of ₹' + tx.amount + ' was not completed and no money was added. If you were charged, please contact support.',
+        bn: '❌ ডিপোজিট সম্পন্ন হয়নি\n\nআপনার ₹' + tx.amount + ' পেমেন্ট সম্পন্ন হয়নি এবং কোনো টাকা যোগ হয়নি। আপনার টাকা কাটা গিয়ে থাকলে অনুগ্রহ করে সাপোর্টে যোগাযোগ করুন।'
+      });
+    }
     return !!tx;
   }
 
@@ -65,7 +73,12 @@ async function settleWithdrawal(orderId, rawStatus) {
   if (!tx) return false;
 
   await User.updateOne({ telegramId: tx.userId }, { $inc: { totalWithdrawn: tx.amount } });
-  notifyUser(tx.userId, '✅ Withdrawal of ₹' + tx.netAmount + ' was sent successfully.');
+
+  const where = tx.method === 'upi' ? 'UPI' : 'FINZO Wallet';
+  notifyUser(tx.userId, {
+    en: '✅ Withdrawal sent\n\n₹' + tx.netAmount + ' has been sent to your ' + where + ' account.',
+    bn: '✅ উইথড্র পাঠানো হয়েছে\n\nআপনার ' + where + ' অ্যাকাউন্টে ₹' + tx.netAmount + ' পাঠানো হয়েছে।'
+  });
   return true;
 }
 
@@ -92,7 +105,10 @@ async function refundWithdrawal(orderId, rawStatus, reason) {
     await User.updateOne({ telegramId: tx.userId, withdrawMonth: month }, { $inc: { withdrawnThisMonth: -tx.amount } });
   }
 
-  notifyUser(tx.userId, '↩️ Your withdrawal of ₹' + tx.amount + ' was not completed. The amount was returned to your balance.' + (reason ? '\nReason: ' + reason : ''));
+  notifyUser(tx.userId, {
+    en: '↩️ Withdrawal not completed\n\n₹' + tx.amount + ' has been returned to your balance.' + (reason ? '\nReason: ' + reason : ''),
+    bn: '↩️ উইথড্র সম্পন্ন হয়নি\n\n₹' + tx.amount + ' আপনার ব্যালেন্সে ফিরিয়ে দেওয়া হয়েছে।' + (reason ? '\nকারণ: ' + reason : '')
+  });
   return true;
 }
 
