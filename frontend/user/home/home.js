@@ -18,14 +18,26 @@ Views.home = async function (box) {
     const rp = next.requiredReferrals > 0 ? Math.min(u.referralsCount / next.requiredReferrals, 1) : 1;
     return '<div class="bold">' + esc(t('home.nextLevel', { name: next.name })) + '</div>'
       + bar(t('home.tasks'), u.tasksCompleted, next.requiredTasks, tp)
-      + bar(t('home.referrals'), u.referralsCount, next.requiredReferrals, rp);
+      + bar(t('home.referrals'), u.referralsCount, next.requiredReferrals, rp)
+      + '<div class="small muted mt">' + esc(t('home.nextHint')) + '</div>';
+  }
+
+  function howBlock() {
+    return '<div class="card"><div class="bold">' + esc(t('home.how.title')) + '</div>'
+      + [1, 2, 3].map((i) =>
+        '<div class="how-step"><i>' + i + '</i><span>' + esc(t('home.how.' + i)) + '</span></div>'
+      ).join('')
+      + '</div>';
   }
 
   function paint() {
     const u = home.user;
     const ci = home.checkIn;
+    const firstName = String(u.name || '').split(' ')[0];
+
     box.innerHTML =
-      '<div class="balance-card">'
+      '<div class="greet">' + esc(t('home.greeting', { name: firstName })) + '</div>'
+      + '<div class="balance-card">'
       + '<div class="bc-top"><span>' + esc(t('home.balance')) + '</span><span class="lvl">' + Icon('star', 12) + esc(u.levelName) + '</span></div>'
       + '<div class="bc-amount">' + money(u.balance) + '</div>'
       + '<div class="bc-id">ID: ' + esc(u.telegramId) + '</div>'
@@ -39,6 +51,7 @@ Views.home = async function (box) {
           + '<button class="btn sm" id="h-ci"' + (ci.canCheckIn ? '' : ' disabled') + '>'
           + esc(ci.canCheckIn ? t('home.checkinBtn') : t('home.checkinDone')) + '</button></div>'
         : '')
+      + (u.tasksCompleted === 0 ? howBlock() : '')
       + '<div class="card">' + levelBlock() + '</div>'
       + '<div class="grid2">'
       + '<div class="stat row gap"><div class="ico out">' + Icon('checkSquare', 18) + '</div>'
@@ -79,10 +92,12 @@ Views.home = async function (box) {
 
     const sheet = UI.modal(
       '<h3>' + esc(t('dep.title')) + '</h3><div id="dp-body">'
+      + '<p class="hint">' + esc(t('dep.hint')) + '</p>'
       + '<label class="label">' + esc(t('dep.amount')) + ' (₹' + d.min + ' – ₹' + d.max + ')</label>'
       + '<input class="input" id="dp-amt" type="number" inputmode="numeric" placeholder="500">'
       + '<div class="chips mt">' + quick.map((x) => '<button class="chip" data-q="' + x + '">₹' + x + '</button>').join('') + '</div>'
       + '<div class="note" id="dp-fee"></div>'
+      + '<p class="hint">' + esc(t('dep.validity')) + '</p>'
       + '<button class="btn block" id="dp-go">' + esc(t('dep.pay')) + '</button></div>',
       { onClose: () => clearInterval(pollTimer) }
     );
@@ -160,6 +175,7 @@ Views.home = async function (box) {
 
     const sheet = UI.modal(
       '<h3>' + esc(t('wd.title')) + '</h3>'
+      + '<p class="hint">' + esc(t('wd.hint')) + '</p>'
       + (methods.length > 1
         ? '<div id="wd-m">' + UI.tabs(methods.map((m) => ({ k: m, label: m === 'upi' ? t('wd.upi') : t('wd.wallet') })), method) + '</div>'
         : '')
@@ -169,6 +185,7 @@ Views.home = async function (box) {
       + '<div class="note" id="wd-fee"></div>'
       + '<div class="small muted mb">' + esc(t('wd.monthly')) + ': '
       + (limit > 0 ? money(p.withdrawnThisMonth) + ' / ' + money(limit) : esc(t('wd.noLimit'))) + '</div>'
+      + '<p class="hint safe">' + esc(t('wd.safe')) + '</p>'
       + '<button class="btn block" id="wd-go">' + esc(t('wd.submit')) + '</button>'
     );
 
