@@ -60,6 +60,7 @@ app.use('/api/user/payments', require('./payments/routes'));
 // Admin routes (Telegram login + admin check on the server)
 app.use('/api/admin', auth, adminOnly);
 app.use('/api/admin/dashboard', require('./admin/dashboard/routes'));
+app.use('/api/admin/analytics', require('./admin/analytics/routes'));
 app.use('/api/admin/users', require('./admin/users/routes'));
 app.use('/api/admin/tasks', require('./admin/tasks/routes'));
 app.use('/api/admin/broadcast', require('./admin/broadcast/routes'));
