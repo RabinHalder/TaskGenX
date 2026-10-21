@@ -96,6 +96,7 @@ Views.task = async function (box) {
     const instructions = d.instructions || [];
     const form = canSubmit
       ? '<div class="card"><div class="bold mb">' + esc(d.myStatus === 'rejected' ? t('task.resubmit') : t('task.upload')) + '</div>'
+        + '<p class="hint">' + esc(t('task.proofTip')) + '</p>'
         + '<input type="file" id="tk-file" accept="image/*" hidden>'
         + '<button class="btn secondary block" id="tk-pick">' + Icon('camera', 18) + esc(t('task.choose')) + '</button>'
         + '<img id="tk-prev" class="proof hidden" alt="">'
