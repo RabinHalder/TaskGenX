@@ -28,10 +28,16 @@ async function sendMessage(chatId, text, extra) {
   return callTelegram('sendMessage', Object.assign({ chat_id: chatId, text: text }, extra || {}));
 }
 
-async function notifyUser(telegramId, text) {
+// message can be a plain string or an object like { en: '...', bn: '...' }
+async function notifyUser(telegramId, message) {
   try {
-    const user = await User.findOne({ telegramId: telegramId }).select('notificationsOn');
+    const user = await User.findOne({ telegramId: telegramId }).select('notificationsOn language');
     if (!user || !user.notificationsOn) return null;
+
+    const text =
+      typeof message === 'string' ? message : (message && (message[user.language] || message.en)) || '';
+    if (!text) return null;
+
     return await sendMessage(telegramId, text);
   } catch (err) {
     console.error('notifyUser failed:', err.message);
