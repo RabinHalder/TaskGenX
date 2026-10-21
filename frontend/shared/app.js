@@ -20,6 +20,11 @@
     { k: 'broadcast', icon: 'send', label: 'Broadcast' },
     { k: 'settings', icon: 'sliders', label: 'Settings' }
   ];
+  var SKELETON = {
+    home: 'home', club: 'rows', task: 'cards', referral: 'cards', profile: 'cards',
+    'admin.dashboard': 'cards', 'admin.users': 'rows', 'admin.tasks': 'cards',
+    'admin.broadcast': 'cards', 'admin.settings': 'cards'
+  };
 
   function hideSplash() {
     var el = document.getElementById('splash');
@@ -36,18 +41,18 @@
   function applyTheme(theme) {
     var v = theme === 'dark' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', v);
-    try { localStorage.setItem('tgx_theme', v); } catch (e) {}
+    try { localStorage.setItem('tgx_theme', v); } catch (e) { /* ignore */ }
     try {
       if (tg) {
-        tg.setHeaderColor(v === 'dark' ? '#0b0f1d' : '#f4f6fc');
-        tg.setBackgroundColor(v === 'dark' ? '#0b0f1d' : '#f4f6fc');
+        tg.setHeaderColor(v === 'dark' ? '#080c1a' : '#f4f6fd');
+        tg.setBackgroundColor(v === 'dark' ? '#080c1a' : '#f4f6fd');
       }
-    } catch (e) {}
+    } catch (e) { /* ignore */ }
   }
 
   function applyLang(l) {
     I18N.set(l);
-    try { localStorage.setItem('tgx_lang', l); } catch (e) {}
+    try { localStorage.setItem('tgx_lang', l); } catch (e) { /* ignore */ }
   }
 
   async function loadHome() {
@@ -59,7 +64,9 @@
 
   async function reloadHome() {
     State.homeAt = 0;
-    return loadHome();
+    var h = await loadHome();
+    try { renderTop(); } catch (e) { /* ignore */ }
+    return h;
   }
 
   function fatal(err) {
@@ -77,10 +84,16 @@
     hideSplash();
   }
 
-  function togglePanel() {
-    State.panel = State.panel === 'admin' ? 'user' : 'admin';
-    State.tab = State.panel === 'admin' ? 'dashboard' : 'home';
+  function go(panel, tab) {
+    State.panel = panel;
+    State.tab = tab;
+    UI.haptic('light');
     render();
+  }
+
+  function togglePanel() {
+    if (State.panel === 'admin') go('user', 'home');
+    else go('admin', 'dashboard');
   }
 
   function renderTop() {
@@ -89,8 +102,9 @@
     var admin = State.panel === 'admin';
     top.innerHTML =
       '<div class="avatar-btn" id="tb-avatar">' + UI.avatar(u) + '</div>'
-      + '<div class="tb-text"><div class="tb-name">' + UI.esc(u.name) + '</div>'
-      + '<div class="tb-sub">' + (admin ? 'Admin panel' : UI.esc(State.home.app.name)) + '</div></div>'
+      + '<div class="tb-text"><div class="tb-sub">' + (admin ? 'Admin panel' : UI.esc(u.levelName)) + '</div>'
+      + '<div class="tb-name">' + UI.esc(u.name) + '</div></div>'
+      + (!admin ? '<button class="bal-chip" id="tb-bal">' + Icon('wallet', 15) + '<span>' + UI.money(u.balance) + '</span></button>' : '')
       + (u.isAdmin
         ? '<button class="tb-switch" id="tb-switch">' + Icon('repeat', 14) + '<span>' + (admin ? 'User' : 'Admin') + '</span></button>'
         : '');
@@ -98,6 +112,8 @@
       document.getElementById('tb-avatar').onclick = togglePanel;
       document.getElementById('tb-switch').onclick = togglePanel;
     }
+    var bal = document.getElementById('tb-bal');
+    if (bal) bal.onclick = function () { go('user', 'home'); };
   }
 
   function renderNav() {
@@ -107,26 +123,26 @@
     nav.innerHTML = tabs.map(function (x) {
       var label = admin ? x.label : t(x.label);
       return '<button data-k="' + x.k + '" class="' + (x.k === State.tab ? 'on' : '') + '">'
-        + '<span class="ic">' + Icon(x.icon, 22) + '</span><span class="lb">' + UI.esc(label) + '</span></button>';
+        + '<span class="ic">' + Icon(x.icon, 21) + '</span><span class="lb">' + UI.esc(label) + '</span></button>';
     }).join('');
     Array.prototype.forEach.call(nav.querySelectorAll('button'), function (b) {
       b.onclick = function () {
         if (State.tab === b.dataset.k) return;
-        State.tab = b.dataset.k;
-        render();
+        go(State.panel, b.dataset.k);
       };
     });
   }
 
   async function renderView() {
     var root = document.getElementById('view');
+    var key = State.panel === 'admin' ? 'admin.' + State.tab : State.tab;
     var box = document.createElement('div');
-    box.innerHTML = UI.loader();
+    box.className = 'view-in';
+    box.innerHTML = UI.skeleton(SKELETON[key] || 'cards');
     root.innerHTML = '';
     root.appendChild(box);
     root.scrollTop = 0;
 
-    var key = State.panel === 'admin' ? 'admin.' + State.tab : State.tab;
     try {
       await window.Views[key](box);
     } catch (err) {
@@ -146,15 +162,15 @@
 
   function initLocal() {
     var th = null, lg = null;
-    try { th = localStorage.getItem('tgx_theme'); lg = localStorage.getItem('tgx_lang'); } catch (e) {}
+    try { th = localStorage.getItem('tgx_theme'); lg = localStorage.getItem('tgx_lang'); } catch (e) { /* ignore */ }
     applyTheme(th || (tg && tg.colorScheme) || 'light');
     I18N.set(lg || 'en');
   }
 
   async function boot() {
     initLocal();
-    if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
-    document.getElementById('view').innerHTML = UI.loader();
+    if (tg) { try { tg.ready(); tg.expand(); } catch (e) { /* ignore */ } }
+    document.getElementById('view').innerHTML = UI.skeleton('home');
     try {
       State.home = await api('/api/user/home');
       State.homeAt = Date.now();
@@ -171,6 +187,7 @@
 
   window.App = {
     render: render,
+    go: go,
     loadHome: loadHome,
     reloadHome: reloadHome,
     applyTheme: applyTheme,
