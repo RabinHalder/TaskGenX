@@ -12,7 +12,8 @@ Views.club = async function (box) {
       { k: 'deposit', label: t('club.deposits') },
       { k: 'withdraw', label: t('club.withdrawals') }
     ], type)
-    + '<div id="club-list">' + UI.loader() + '</div>';
+    + '<div id="club-list">' + UI.loader() + '</div>'
+    + '<p class="hint">' + esc(t('club.privacy')) + '</p>';
 
   UI.bindTabs(box, (k) => { type = k; load(); });
 
