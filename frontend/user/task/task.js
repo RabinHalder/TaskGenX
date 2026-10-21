@@ -7,6 +7,23 @@ Views.task = async function (box) {
   let tab = 'tasks';
   let cat = 'All';
 
+  const TILES = ['t-blue', 't-violet', 't-teal', 't-amber', 't-pink', 't-green'];
+
+  function catIcon(c) {
+    const k = String(c || '').toLowerCase();
+    if (k.indexOf('social') > -1) return 'share';
+    if (k.indexOf('app') > -1) return 'smartphone';
+    if (k.indexOf('web') > -1) return 'globe';
+    return 'zap';
+  }
+
+  function catTile(c) {
+    let h = 0;
+    const s = String(c || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return TILES[h % TILES.length];
+  }
+
   function frame() {
     box.innerHTML =
       UI.tabs([{ k: 'tasks', label: t('task.tasks') }, { k: 'history', label: t('task.history') }], tab)
@@ -19,11 +36,14 @@ Views.task = async function (box) {
 
   function card(it) {
     return '<div class="card tcard" data-id="' + esc(it.id) + '">'
-      + '<div class="row between"><div class="bold">' + esc(it.title) + '</div><div class="reward">+' + money(it.reward) + '</div></div>'
-      + '<div class="row between mt"><span class="badge">' + esc(it.category) + '</span>'
-      + (it.myStatus
-        ? UI.badge(it.myStatus)
-        : (it.slotsLeft !== null ? '<span class="small muted">' + esc(t('task.slots', { n: it.slotsLeft })) + '</span>' : ''))
+      + '<div class="row gap"><div class="tile ' + catTile(it.category) + '">' + Icon(catIcon(it.category), 22) + '</div>'
+      + '<div class="grow"><div class="bold">' + esc(it.title) + '</div>'
+      + '<div class="small muted">' + esc(it.category) + '</div></div>'
+      + '<div class="reward-pill">+' + money(it.reward) + '</div></div>'
+      + (it.description ? '<div class="small muted mt" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + esc(it.description) + '</div>' : '')
+      + '<div class="row between mt">'
+      + (it.slotsLeft !== null ? '<span class="small muted row" style="gap:5px">' + Icon('users', 14) + esc(t('task.slots', { n: it.slotsLeft })) + '</span>' : '<span></span>')
+      + (it.myStatus ? UI.badge(it.myStatus) : '<span class="small bold" style="color:var(--brand)">' + esc(t('common.ok') === 'OK' ? 'Start' : 'শুরু করুন') + ' →</span>')
       + '</div></div>';
   }
 
@@ -33,18 +53,18 @@ Views.task = async function (box) {
     body.innerHTML =
       '<div class="chips">' + cats.map((c) =>
         '<button class="chip' + (c === cat ? ' on' : '') + '" data-c="' + esc(c) + '">' + esc(c === 'All' ? t('task.all') : c) + '</button>'
-      ).join('') + '</div><div id="tk-list">' + UI.loader() + '</div>';
+      ).join('') + '</div><div id="tk-list">' + UI.skeleton('cards', 3) + '</div>';
     body.querySelectorAll('[data-c]').forEach((b) => {
-      b.onclick = () => { cat = b.dataset.c; showList(); };
+      b.onclick = () => { UI.haptic('light'); cat = b.dataset.c; showList(); };
     });
 
     const list = body.querySelector('#tk-list');
     try {
       const items = await api('/api/user/task?category=' + encodeURIComponent(cat));
-      if (!items.length) { list.innerHTML = UI.empty(t('task.none')); return; }
-      list.innerHTML = items.map(card).join('');
+      if (!items.length) { list.innerHTML = UI.emptyState('clipboard', t2('es.tasks'), t('task.none')); return; }
+      list.innerHTML = '<div class="small muted mb">' + esc(t2('task.available', { n: items.length })) + '</div>' + items.map(card).join('');
       list.querySelectorAll('[data-id]').forEach((el) => {
-        el.onclick = () => showDetail(el.dataset.id);
+        el.onclick = () => { UI.haptic('light'); showDetail(el.dataset.id); };
       });
     } catch (e) {
       list.innerHTML = UI.empty(e.message);
@@ -53,12 +73,13 @@ Views.task = async function (box) {
 
   async function showHistory() {
     const body = box.querySelector('#tk-body');
-    body.innerHTML = UI.loader();
+    body.innerHTML = UI.skeleton('rows', 4);
     try {
       const items = await api('/api/user/task/history');
-      if (!items.length) { body.innerHTML = UI.empty(t('task.historyNone')); return; }
+      if (!items.length) { body.innerHTML = UI.emptyState('checkSquare', t2('es.history'), t('task.historyNone')); return; }
       body.innerHTML = '<div class="list">' + items.map((s) =>
-        '<div class="item"><div class="mid"><div class="t">' + esc(s.taskTitle) + '</div>'
+        '<div class="item"><div class="tile sm ' + catTile(s.category) + '">' + Icon(catIcon(s.category), 18) + '</div>'
+        + '<div class="mid"><div class="t">' + esc(s.taskTitle) + '</div>'
         + '<div class="s">' + esc(s.category) + ' · ' + esc(UI.timeAgo(s.createdAt))
         + (s.rejectReason ? '<br>' + esc(t('task.reason')) + ': ' + esc(s.rejectReason) : '') + '</div></div>'
         + '<div class="r"><div class="t pos">+' + money(s.reward) + '</div>' + UI.badge(s.status) + '</div></div>'
@@ -69,7 +90,7 @@ Views.task = async function (box) {
   }
 
   async function showDetail(id) {
-    box.innerHTML = UI.loader();
+    box.innerHTML = UI.skeleton('cards', 3);
     let d;
     try {
       d = await api('/api/user/task/' + encodeURIComponent(id));
@@ -105,19 +126,20 @@ Views.task = async function (box) {
       : '';
 
     box.innerHTML =
-      '<button class="back" id="tk-back">← ' + esc(t('common.back')) + '</button>'
-      + '<div class="card"><div class="row between"><span class="badge">' + esc(d.category) + '</span>'
-      + '<span class="reward">+' + money(d.reward) + '</span></div>'
-      + '<div class="h2 mt">' + esc(d.title) + '</div>'
+      '<button class="back" id="tk-back">' + Icon('chevronRight', 16).replace('<svg', '<svg style="transform:rotate(180deg)"') + esc(t('common.back')) + '</button>'
+      + '<div class="card"><div class="row gap"><div class="tile lg ' + catTile(d.category) + '">' + Icon(catIcon(d.category), 28) + '</div>'
+      + '<div class="grow"><span class="badge">' + esc(d.category) + '</span>'
+      + '<div class="h2" style="margin-top:4px">' + esc(d.title) + '</div></div></div>'
+      + '<div class="row between mt"><div class="small muted">' + esc(t('task.upload')) + '</div><div class="reward-pill">+' + money(d.reward) + '</div></div>'
       + (d.description ? '<div class="pre muted mt">' + esc(d.description) + '</div>' : '')
       + (instructions.length
-        ? '<div class="bold mt">' + esc(t('task.instructions')) + '</div><ol class="steps">'
-          + instructions.map((s) => '<li>' + esc(s) + '</li>').join('') + '</ol>'
+        ? '<div class="bold mt">' + esc(t('task.instructions')) + '</div>'
+          + instructions.map((s, i) => '<div class="how-step"><i>' + (i + 1) + '</i><span>' + esc(s) + '</span></div>').join('')
         : '')
       + (d.expiresAt
-        ? '<div class="small muted mt row gap" style="gap:6px">' + Icon('clock', 14) + '<span>' + esc(t('task.expires')) + ': ' + esc(UI.dateStr(d.expiresAt)) + '</span></div>'
+        ? '<div class="small muted mt row" style="gap:6px">' + Icon('clock', 14) + '<span>' + esc(t('task.expires')) + ': ' + esc(UI.dateStr(d.expiresAt)) + '</span></div>'
         : '')
-      + (d.slotsLeft !== null ? '<div class="small muted">' + esc(t('task.slots', { n: d.slotsLeft })) + '</div>' : '')
+      + (d.slotsLeft !== null ? '<div class="small muted row" style="gap:6px;margin-top:4px">' + Icon('users', 14) + '<span>' + esc(t('task.slots', { n: d.slotsLeft })) + '</span></div>' : '')
       + (/^https?:\/\//i.test(d.link || '')
         ? '<button class="btn secondary block mt" id="tk-link">' + Icon('link', 18) + esc(t('task.openLink')) + '</button>'
         : '')
@@ -145,16 +167,17 @@ Views.task = async function (box) {
       box.querySelector('#tk-send').onclick = async () => {
         if (!image) return UI.toast(t('task.pickFirst'), 'bad');
         const btn = box.querySelector('#tk-send');
-        btn.disabled = true;
+        UI.busy(btn, true);
         try {
           await api('/api/user/task/' + encodeURIComponent(id) + '/submit', {
             method: 'POST',
             body: { image: image, note: box.querySelector('#tk-note').value }
           });
+          UI.confetti();
           UI.toast(t('task.submitted'), 'ok');
           showDetail(id);
         } catch (e) {
-          btn.disabled = false;
+          UI.busy(btn, false);
           UI.toast(e.message, 'bad');
         }
       };
