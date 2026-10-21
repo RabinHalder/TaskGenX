@@ -5,7 +5,7 @@ Views.club = async function (box) {
   let type = 'all';
 
   box.innerHTML =
-    '<div class="h1">🏆 ' + esc(t('club.title')) + '</div>'
+    '<div class="h1 row gap">' + Icon('award', 24) + '<span>' + esc(t('club.title')) + '</span></div>'
     + '<div class="muted small mb">' + esc(t('club.sub')) + '</div>'
     + UI.tabs([
       { k: 'all', label: t('club.all') },
@@ -19,7 +19,7 @@ Views.club = async function (box) {
   function row(it) {
     const dep = it.type === 'deposit';
     const sub = [it.userIdMasked ? 'ID ' + it.userIdMasked : '', it.destinationMasked || ''].filter(Boolean).join(' · ');
-    return '<div class="item"><div class="ico ' + (dep ? 'in' : 'out') + '">' + (dep ? '⬇' : '⬆') + '</div>'
+    return '<div class="item"><div class="ico ' + (dep ? 'in' : 'out') + '">' + Icon(dep ? 'arrowDownLeft' : 'arrowUpRight', 18) + '</div>'
       + '<div class="mid"><div class="t">' + esc(it.name) + '</div>'
       + '<div class="s">' + esc(dep ? t('club.deposited') : t('club.withdrew')) + (sub ? ' · ' + esc(sub) : '') + '</div></div>'
       + '<div class="r"><div class="t ' + (dep ? 'pos' : '') + '">' + UI.money(it.amount) + '</div>'
