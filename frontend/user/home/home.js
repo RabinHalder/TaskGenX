@@ -26,22 +26,25 @@ Views.home = async function (box) {
     const ci = home.checkIn;
     box.innerHTML =
       '<div class="balance-card">'
-      + '<div class="bc-top"><span>' + esc(t('home.balance')) + '</span><span class="lvl">' + esc(u.levelName) + '</span></div>'
+      + '<div class="bc-top"><span>' + esc(t('home.balance')) + '</span><span class="lvl">' + Icon('star', 12) + esc(u.levelName) + '</span></div>'
       + '<div class="bc-amount">' + money(u.balance) + '</div>'
       + '<div class="bc-id">ID: ' + esc(u.telegramId) + '</div>'
-      + '<div class="row gap mt"><button class="btn light block" id="h-dep">＋ ' + esc(t('home.deposit')) + '</button>'
-      + '<button class="btn light block" id="h-wd">↗ ' + esc(t('home.withdraw')) + '</button></div>'
+      + '<div class="row gap mt"><button class="btn light block" id="h-dep">' + Icon('plus', 18) + esc(t('home.deposit')) + '</button>'
+      + '<button class="btn light block" id="h-wd">' + Icon('arrowUpRight', 18) + esc(t('home.withdraw')) + '</button></div>'
       + '</div>'
       + (ci.enabled
-        ? '<div class="card row between"><div><div class="bold">🎁 ' + esc(t('home.checkin')) + '</div>'
-          + '<div class="small muted">+' + money(ci.amount) + ' · ' + esc(t('home.streak', { n: ci.streak })) + '</div></div>'
+        ? '<div class="card row between"><div class="row gap"><div class="ico in">' + Icon('gift', 20) + '</div>'
+          + '<div><div class="bold">' + esc(t('home.checkin')) + '</div>'
+          + '<div class="small muted">+' + money(ci.amount) + ' · ' + esc(t('home.streak', { n: ci.streak })) + '</div></div></div>'
           + '<button class="btn sm" id="h-ci"' + (ci.canCheckIn ? '' : ' disabled') + '>'
           + esc(ci.canCheckIn ? t('home.checkinBtn') : t('home.checkinDone')) + '</button></div>'
         : '')
       + '<div class="card">' + levelBlock() + '</div>'
       + '<div class="grid2">'
-      + '<div class="stat"><div class="v">' + u.tasksCompleted + '</div><div class="k">' + esc(t('home.tasksDone')) + '</div></div>'
-      + '<div class="stat"><div class="v">' + u.referralsCount + '</div><div class="k">' + esc(t('home.referrals')) + '</div></div>'
+      + '<div class="stat row gap"><div class="ico out">' + Icon('checkSquare', 18) + '</div>'
+      + '<div><div class="v">' + u.tasksCompleted + '</div><div class="k">' + esc(t('home.tasksDone')) + '</div></div></div>'
+      + '<div class="stat row gap"><div class="ico in">' + Icon('users', 18) + '</div>'
+      + '<div><div class="v">' + u.referralsCount + '</div><div class="k">' + esc(t('home.referrals')) + '</div></div></div>'
       + '</div>';
 
     box.querySelector('#h-dep').onclick = openDeposit;
@@ -103,7 +106,7 @@ Views.home = async function (box) {
         '<div class="center-col"><div class="spinner"></div>'
         + '<div class="bold mt">' + esc(t('dep.waiting')) + '</div>'
         + '<div class="small muted mt">' + esc(t('dep.waitingHint')) + '</div>'
-        + '<button class="btn block mt" id="dp-open">' + esc(t('dep.openPay')) + '</button></div>';
+        + '<button class="btn block mt" id="dp-open">' + Icon('link', 18) + esc(t('dep.openPay')) + '</button></div>';
       sheet.querySelector('#dp-open').onclick = () => UI.openLink(r.paymentUrl);
       UI.openLink(r.paymentUrl);
 
