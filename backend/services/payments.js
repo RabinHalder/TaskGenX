@@ -9,8 +9,41 @@ const { fail } = require("../utils/errors");
 
 const ACTIVE_STATUSES = ["created", "awaiting_approval", "processing", "success"];
 
+// Problems the admin must fix (not the user's fault). The withdrawal waits instead of being refunded.
+const HOLD_CODES = new Set([
+  "INSUFFICIENT_BALANCE",
+  "GATEWAY_AUTH_INVALID",
+  "GATEWAY_IP_NOT_ALLOWED",
+  "NOT_CONFIGURED",
+  "WITHDRAW_METHOD_DISABLED",
+]);
+
 function makeOrderId(prefix) {
   return `${prefix}${Date.now()}${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+}
+
+function friendlyReason(e) {
+  switch (e && e.code) {
+    case "PAYOUT_DETAILS_REQUIRED":
+      return "Invalid payment details";
+    case "WITHDRAW_AMOUNT_RANGE":
+    case "AMOUNT_OUT_OF_RANGE":
+    case "AMOUNT_RANGE":
+      return "Amount is outside the allowed range";
+    case "NO_ADD_FUND_AGENT":
+      return "No payment channel is available right now";
+    default:
+      return "Payment was rejected";
+  }
+}
+
+// Tells admins about a problem, at most once every 10 minutes per kind.
+const lastAlert = {};
+function alertAdmins(key, text) {
+  const now = Date.now();
+  if (lastAlert[key] && now - lastAlert[key] < 10 * 60 * 1000) return;
+  lastAlert[key] = now;
+  bot.notifyAdmins(text);
 }
 
 async function sumWithdraw(tgId, field, key) {
@@ -26,10 +59,14 @@ async function sumWithdraw(tgId, field, key) {
 async function createDeposit(user, amount, settings) {
   const s = settings.deposit;
   if (!s.enabled) throw fail(400, "Deposits are currently disabled");
+
   amount = round2(amount);
-  if (!(amount > 0) || amount < s.min || amount > s.max) {
-    throw fail(400, `Deposit must be between ₹${s.min} and ₹${s.max}`);
-  }
+  const lim = finzo.depositLimits();
+  const lo = Math.max(Math.ceil(s.min), lim.min);
+  const hi = Math.min(Math.floor(s.max), lim.max);
+  // FINZO UPI payments accept whole rupees only
+  if (!Number.isInteger(amount) || amount <= 0) throw fail(400, "Enter a valid amount");
+  if (amount < lo || amount > hi) throw fail(400, `Deposit must be between ₹${lo} and ₹${hi}`);
 
   const recent = await Payment.countDocuments({
     tgId: user.tgId,
@@ -55,35 +92,37 @@ async function createDeposit(user, amount, settings) {
     netAmount: net,
     status: "created",
     orderId,
+    finzoOrderId: orderId,
     dayKey: dateKey(new Date(), tz),
     monthKey: monthKey(new Date(), tz),
   });
 
   try {
-    const base = process.env.APP_URL || "";
-    const r = await finzo.createUpiOrder({
-      orderId,
-      amount,
-      customerId: String(user.tgId),
-      callbackUrl: `${base}/api/payments/finzo/callback`,
-      redirectUrl: base,
-    });
+    const r = await finzo.createUpiOrder({ orderId, amount });
     payment.status = "pending";
     payment.gatewayRef = r.gatewayRef;
     payment.paymentUrl = r.paymentUrl;
     await payment.save();
   } catch (e) {
-    console.error("Deposit create failed:", e.message);
+    console.error("Deposit create failed:", e.code || "", e.message);
     payment.status = "failed";
     payment.settled = true;
-    payment.failureReason = e.message;
+    payment.failureReason = friendlyReason(e);
+    payment.gatewayPayload = { code: e.code || "", message: e.message };
     await payment.save();
+    if (HOLD_CODES.has(e.code)) {
+      alertAdmins(
+        "finzo-config",
+        `FINZO problem while starting a deposit: <code>${escapeHtml(e.code)}</code>. Please check the FINZO settings and API key.`
+      );
+    }
     throw fail(502, "Could not start the payment. Please try again.");
   }
   return payment;
 }
 
-// Idempotent: safe to call from callback AND polling at the same time.
+// Safe to call from the callback AND polling at the same time.
+// The UPI link is locked to the exact amount, so no amount comparison is needed.
 async function settleDeposit(orderId, status, info = {}) {
   const payment = await Payment.findOne({ orderId, type: "deposit" });
   if (!payment) return { ok: false, reason: "not_found" };
@@ -104,29 +143,6 @@ async function settleDeposit(orderId, status, info = {}) {
     return { ok: true, status: "failed" };
   }
   if (status !== "success") return { ok: true, status: "pending" };
-
-  if (
-    info.amount !== undefined &&
-    info.amount !== null &&
-    !Number.isNaN(Number(info.amount)) &&
-    Math.abs(Number(info.amount) - payment.amount) > 0.01
-  ) {
-    await Payment.updateOne(
-      { _id: payment._id, settled: false },
-      {
-        $set: {
-          status: "failed",
-          settled: true,
-          failureReason: "Amount mismatch",
-          gatewayPayload: info.raw || null,
-        },
-      }
-    );
-    bot.notifyAdmins(
-      `Deposit amount mismatch for order <code>${escapeHtml(orderId)}</code>. Please check manually.`
-    );
-    return { ok: false, reason: "amount_mismatch" };
-  }
 
   const claimed = await Payment.findOneAndUpdate(
     { _id: payment._id, settled: false },
@@ -163,9 +179,17 @@ async function settleDeposit(orderId, status, info = {}) {
 }
 
 async function checkDeposit(payment) {
-  const r = await finzo.checkDeposit(payment.orderId);
+  // The app checks every few seconds; do not call FINZO more than once per 8 seconds per order.
+  if (payment.lastCheckedAt && Date.now() - new Date(payment.lastCheckedAt).getTime() < 8000) {
+    return { ok: true, status: "pending", throttled: true };
+  }
   await Payment.updateOne({ _id: payment._id }, { $set: { lastCheckedAt: new Date() } });
-  return settleDeposit(payment.orderId, r.status, { ref: r.ref, amount: r.amount, raw: r.raw });
+  const r = await finzo.checkDeposit(payment.finzoOrderId || payment.orderId);
+  return settleDeposit(payment.orderId, r.status, {
+    ref: r.ref,
+    raw: r.raw,
+    reason: "Payment failed or expired",
+  });
 }
 
 /* ------------------------------ WITHDRAW ------------------------------ */
@@ -233,25 +257,84 @@ async function refundWithdraw(
   return claimed;
 }
 
+function beneficiaryName(user) {
+  const clean = String(fullName(user))
+    .replace(/[^\p{L}\p{N} .'-]/gu, "")
+    .trim()
+    .slice(0, 50);
+  return clean || "Customer";
+}
+
+async function handlePayoutError(p, e) {
+  console.error("Payout error:", p.orderId, e.code || "", e.message);
+
+  if (HOLD_CODES.has(e.code)) {
+    // Not the user's fault: keep the money locked and wait for the admin.
+    const held = await Payment.findOneAndUpdate(
+      { _id: p._id, settled: false, status: "processing" },
+      {
+        $set: {
+          status: "awaiting_approval",
+          failureReason: "",
+          gatewayPayload: { code: e.code, message: e.message },
+        },
+      },
+      { new: true }
+    );
+    if (held) {
+      alertAdmins(
+        "finzo-hold-" + e.code,
+        `A withdrawal could not be sent: <code>${escapeHtml(e.code)}</code>. ` +
+          (e.code === "INSUFFICIENT_BALANCE"
+            ? "Your FINZO wallet balance is too low. Add money, then approve the request again."
+            : "Please check the FINZO settings and API key, then approve the request again.")
+      );
+      const user = await User.findById(p.user);
+      bot.notifyUser(
+        user,
+        `Your withdrawal of ₹${p.amount} is waiting for approval.`,
+        `আপনার ₹${p.amount} উইথড্র অনুমোদনের অপেক্ষায় আছে।`
+      );
+    }
+    return;
+  }
+
+  if (e.definite) {
+    await refundWithdraw(p, friendlyReason(e));
+    return;
+  }
+  // Uncertain result: stays "processing". The background check resolves it.
+}
+
 async function processPayout(paymentId) {
   const p = await Payment.findOneAndUpdate(
     { _id: paymentId, type: "withdraw", settled: false, status: { $in: ["created", "awaiting_approval"] } },
-    { $set: { status: "processing" } },
+    { $set: { status: "processing", processingAt: new Date() }, $inc: { attempts: 1 } },
     { new: true }
   );
   if (!p) return null;
+
+  // Every attempt gets its own Unique-Order-ID, so an approved retry is never a "duplicate".
+  const fid = p.attempts <= 1 ? p.orderId : `${p.orderId}-${p.attempts}`;
+  await Payment.updateOne({ _id: p._id }, { $set: { finzoOrderId: fid } });
+  p.finzoOrderId = fid;
 
   try {
     const user = await User.findById(p.user);
     const r =
       p.method === "upi"
         ? await finzo.payoutUpi({
-            orderId: p.orderId,
+            orderId: fid,
             amount: p.netAmount,
             upi: p.destination,
-            name: fullName(user),
+            name: beneficiaryName(user),
           })
-        : await finzo.walletPay({ orderId: p.orderId, amount: p.netAmount, wallet: p.destination });
+        : await finzo.walletPay({
+            orderId: fid,
+            amount: p.netAmount,
+            wallet: p.destination,
+            remark: `Withdrawal ${p.orderId}`,
+          });
 
     await Payment.updateOne(
       { _id: p._id },
@@ -259,13 +342,9 @@ async function processPayout(paymentId) {
     );
     if (r.status === "success") await finalizeWithdraw(p);
     else if (r.status === "failed") await refundWithdraw(p, "Payout failed");
-    // otherwise it stays "processing" until callback / polling resolves it
+    // otherwise it stays "processing" until the callback or polling resolves it
   } catch (e) {
-    if (e.definite) {
-      await refundWithdraw(p, e.message || "Payout rejected");
-    } else {
-      console.error("Payout result unknown, left as processing:", p.orderId, e.message);
-    }
+    await handlePayoutError(p, e);
   }
   return Payment.findById(p._id);
 }
@@ -280,15 +359,29 @@ async function createWithdraw(user, amount, method, settings) {
   const destination =
     method === "upi" ? user.withdrawDetails.upi : user.withdrawDetails.finzoWallet;
   if (!destination) throw fail(400, "Please save your withdraw details in Profile first");
+  // FINZO wallets are identified by a 10-digit mobile number
+  if (method === "finzo_wallet" && !/^\d{10}$/.test(destination)) {
+    throw fail(400, "Invalid FINZO Wallet ID");
+  }
 
   amount = round2(amount);
-  if (!(amount > 0) || amount < w.min || amount > w.max) {
-    throw fail(400, `Withdraw must be between ₹${w.min} and ₹${w.max}`);
+  const lvl = (settings.levels || [])[(user.level || 1) - 1] ||
+    (settings.levels || [])[0] || { withdrawFeePercent: 0, monthlyWithdrawLimit: 0 };
+
+  // The allowed range is the tighter of our Settings and FINZO's own limit for this method
+  const feeRate = Math.min(0.99, Math.max(0, lvl.withdrawFeePercent) / 100);
+  const lim = finzo.payoutLimits(method);
+  const lo = Math.max(Math.ceil(w.min), Math.ceil(lim.min / (1 - feeRate)));
+  const hi = Math.min(Math.floor(w.max), Math.floor(lim.max / (1 - feeRate)));
+  if (!(amount > 0) || amount < lo || amount > hi) {
+    throw fail(400, `Withdraw must be between ₹${lo} and ₹${hi}`);
   }
   if (user.balance < amount) throw fail(400, "Insufficient balance");
 
-  const lvl = (settings.levels || [])[(user.level || 1) - 1] ||
-    (settings.levels || [])[0] || { withdrawFeePercent: 0, monthlyWithdrawLimit: 0 };
+  if (method === "finzo_wallet") {
+    const exists = await finzo.walletExists(destination);
+    if (exists === false) throw fail(400, "Invalid FINZO Wallet ID");
+  }
 
   const tz = settings.app.timezone;
   const dk = dateKey(new Date(), tz);
@@ -360,7 +453,14 @@ async function approveWithdraw(paymentId, adminTgId) {
     { new: true }
   );
   if (!upd) return null;
-  return processPayout(upd._id);
+  const res = await processPayout(upd._id);
+  if (res && res.status === "awaiting_approval") {
+    throw fail(
+      409,
+      "The payout could not start (FINZO balance low or gateway problem). The request is still waiting. Fix it and approve again."
+    );
+  }
+  return res;
 }
 
 async function rejectWithdraw(paymentId, reason) {
@@ -374,17 +474,32 @@ async function cancelWithdraw(p) {
 }
 
 async function checkWithdraw(p) {
-  const r = await finzo.checkPayout(p.orderId);
   await Payment.updateOne({ _id: p._id }, { $set: { lastCheckedAt: new Date() } });
+  let r;
+  try {
+    r = await finzo.checkPayout(p.finzoOrderId || p.orderId, p.method);
+  } catch (e) {
+    if (e.orderNotFound) {
+      // FINZO has no such order. After 10 minutes we are sure it was never created, so refund.
+      const started = new Date(p.processingAt || p.createdAt).getTime();
+      if (Date.now() - started > 10 * 60 * 1000) {
+        await refundWithdraw(p, "Payout was not created", "failed", ["processing"]);
+      }
+      return;
+    }
+    throw e;
+  }
   if (r.status === "success") await finalizeWithdraw(p);
   else if (r.status === "failed") await refundWithdraw(p, "Payout failed", "failed", ["processing"]);
 }
 
 /* ------------------------------- POLLING ------------------------------- */
 
+// Fallback for missed callbacks. Kept gentle: FINZO allows 120 requests per minute.
 async function pollPending() {
   const now = Date.now();
   const sixHours = new Date(now - 6 * 60 * 60 * 1000);
+  const stale = new Date(now - 25 * 1000);
 
   await Payment.updateMany(
     { type: "deposit", status: "pending", settled: false, createdAt: { $lt: sixHours } },
@@ -396,12 +511,16 @@ async function pollPending() {
     status: "pending",
     settled: false,
     createdAt: { $gte: sixHours },
-  }).limit(30);
+    $or: [{ lastCheckedAt: null }, { lastCheckedAt: { $lt: stale } }],
+  })
+    .sort({ createdAt: 1 })
+    .limit(20);
   for (const d of deposits) {
     try {
       await checkDeposit(d);
     } catch (e) {
-      console.error("Deposit poll error:", d.orderId, e.message);
+      console.error("Deposit poll error:", d.orderId, e.code || "", e.message);
+      if (e.status === 429) break;
     }
   }
 
@@ -409,12 +528,16 @@ async function pollPending() {
     type: "withdraw",
     status: "processing",
     settled: false,
-  }).limit(30);
+    $or: [{ lastCheckedAt: null }, { lastCheckedAt: { $lt: stale } }],
+  })
+    .sort({ createdAt: 1 })
+    .limit(15);
   for (const w of withdrawals) {
     try {
       await checkWithdraw(w);
     } catch (e) {
-      console.error("Withdraw poll error:", w.orderId, e.message);
+      console.error("Withdraw poll error:", w.orderId, e.code || "", e.message);
+      if (e.status === 429) break;
     }
   }
 }
