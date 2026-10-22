@@ -1,190 +1,275 @@
-// FINZO Wallet API adapter.
-// ASSUMPTION: endpoint paths, field names and the signature rule below are
-// placeholders. Adjust them to match the FINZO documentation.
-// All paths can be overridden with environment variables.
+/* FINZO Wallet Gateway API adapter.
+   Written from the FINZO documentation dated 23 Oct 2026.
+   Needs these environment variables: FINZO_API_KEY, FINZO_USER_ID (or FINZO_MERCHANT_ID),
+   and optionally FINZO_BASE_URL (default https://finzowallet.com). */
 const crypto = require("crypto");
+
+function num(v, d) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : d;
+}
 
 function conf() {
   return {
-    base: (process.env.FINZO_BASE_URL || "").replace(/\/+$/, ""),
+    base: (process.env.FINZO_BASE_URL || "https://finzowallet.com").replace(/\/+$/, ""),
+    userId: process.env.FINZO_USER_ID || process.env.FINZO_MERCHANT_ID || "",
     key: process.env.FINZO_API_KEY || "",
-    secret: process.env.FINZO_API_SECRET || "",
-    merchant: process.env.FINZO_MERCHANT_ID || "",
-    paths: {
-      upiCreate: process.env.FINZO_PATH_UPI_CREATE || "/upi/create",
-      upiStatus: process.env.FINZO_PATH_UPI_STATUS || "/upi/status",
-      payoutUpi: process.env.FINZO_PATH_PAYOUT_UPI || "/payout/upi",
-      walletPay: process.env.FINZO_PATH_WALLET_PAY || "/wallet/pay",
-      payoutStatus: process.env.FINZO_PATH_PAYOUT_STATUS || "/payout/status",
-    },
   };
 }
 
-// "definite" = we know the request did NOT go through, so refunding is safe.
-function definiteError(message) {
+// FINZO's own limits (from its documentation). Override with env variables if FINZO changes them.
+function depositLimits() {
+  return {
+    min: num(process.env.FINZO_UPI_DEPOSIT_MIN, 50),
+    max: num(process.env.FINZO_UPI_DEPOSIT_MAX, 100000),
+  };
+}
+
+function payoutLimits(method) {
+  if (method === "upi") {
+    return {
+      min: num(process.env.FINZO_UPI_PAYOUT_MIN, 50),
+      max: num(process.env.FINZO_UPI_PAYOUT_MAX, 50000),
+    };
+  }
+  return {
+    min: num(process.env.FINZO_WALLET_PAY_MIN, 1),
+    max: num(process.env.FINZO_WALLET_PAY_MAX, 10000),
+  };
+}
+
+function gatewayError(message, props) {
   const e = new Error(message);
-  e.definite = true;
+  Object.assign(e, props || {});
   return e;
 }
 
-// Signature: HMAC-SHA256 (hex) over "k=v&k=v" of sorted non-empty params.
-function signParams(params, secret) {
-  const str = Object.keys(params)
-    .filter(
-      (k) =>
-        k !== "sign" &&
-        k !== "signature" &&
-        params[k] !== undefined &&
-        params[k] !== null &&
-        params[k] !== ""
-    )
-    .sort()
-    .map((k) => `${k}=${params[k]}`)
-    .join("&");
-  return crypto.createHmac("sha256", secret).update(str).digest("hex");
-}
-
-function verifyCallback(body) {
-  const c = conf();
-  if (!c.secret || !body) return false;
-  const given = String(body.sign || body.signature || "").toLowerCase();
-  if (!given) return false;
-  const expected = signParams(body, c.secret);
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-
-function pick(obj, ...keys) {
-  if (!obj) return undefined;
-  for (const src of [obj, obj.data]) {
+// First plain value found for any of the keys (looks inside "data" first, then top level).
+function pick(json, ...keys) {
+  const sources = [json && json.data, json];
+  for (const src of sources) {
     if (!src || typeof src !== "object") continue;
     for (const k of keys) {
-      if (src[k] !== undefined && src[k] !== null && src[k] !== "") return src[k];
+      const v = src[k];
+      if (v !== undefined && v !== null && v !== "" && typeof v !== "object") return v;
     }
   }
   return undefined;
 }
 
+// All plain values found for the keys, as strings.
+function collect(json, keys) {
+  const out = [];
+  for (const src of [json && json.data, json]) {
+    if (!src || typeof src !== "object") continue;
+    for (const k of keys) {
+      const v = src[k];
+      if (v !== undefined && v !== null && v !== "" && typeof v !== "object") {
+        const s = String(v);
+        if (!out.includes(s)) out.push(s);
+      }
+    }
+  }
+  return out;
+}
+
+// FINZO statuses: pending, processing, success, failed, expired, cancelled, refunded
 function normalize(s) {
-  const v = String(s || "").toLowerCase();
-  if (["success", "successful", "paid", "completed", "complete", "done", "credited"].includes(v))
-    return "success";
-  if (["failed", "failure", "rejected", "expired", "cancelled", "canceled", "declined", "refunded"].includes(v))
+  const v = String(s === undefined || s === null ? "" : s).toLowerCase().trim();
+  if (["success", "successful", "paid", "completed", "complete", "done", "credited"].includes(v)) return "success";
+  if (["failed", "failure", "rejected", "expired", "cancelled", "canceled", "declined", "refunded", "reversed"].includes(v)) {
     return "failed";
+  }
   return "pending";
 }
 
-async function post(path, body) {
+async function call(method, path, opts) {
+  opts = opts || {};
   const c = conf();
-  if (!c.base || !c.key || !c.secret) throw definiteError("FINZO is not configured");
+  if (!c.userId || !c.key) {
+    throw gatewayError("FINZO is not configured", { code: "NOT_CONFIGURED", definite: true });
+  }
 
-  const payload = { ...body };
-  if (c.merchant) payload.merchant_id = c.merchant;
-  payload.sign = signParams(payload, c.secret);
+  const headers = {
+    Accept: "application/json",
+    "X-User-ID": c.userId,
+    "X-API-Key": c.key,
+  };
+  let body;
+  if (method === "POST") {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify(opts.body || {});
+    if (opts.orderId) headers["Unique-Order-ID"] = opts.orderId;
+  }
+
+  let url = c.base + path;
+  if (opts.query) url += "?" + new URLSearchParams(opts.query).toString();
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
   let res;
   try {
-    res = await fetch(c.base + path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-KEY": c.key },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
+    res = await fetch(url, { method, headers, body, signal: controller.signal });
+  } catch (e) {
+    // We cannot know whether FINZO received the request.
+    throw gatewayError("FINZO did not respond", { code: "NETWORK", definite: false });
   } finally {
     clearTimeout(timer);
   }
 
-  const text = await res.text();
-  let json = {};
+  const text = await res.text().catch(() => "");
+  let json = null;
   try {
-    json = JSON.parse(text);
+    json = text ? JSON.parse(text) : null;
   } catch (e) {
-    /* not JSON */
+    json = null;
   }
 
-  if (res.status >= 500) throw new Error(`FINZO server error ${res.status}`);
-  if (res.status >= 400) throw definiteError(pick(json, "message", "error") || `FINZO rejected (${res.status})`);
+  if (res.ok && json && json.success !== false) return json;
 
-  const st = json.status;
-  if (json.success === false || st === false || (typeof st === "string" && /^(fail|error)/i.test(st))) {
-    throw definiteError(pick(json, "message", "error") || "FINZO request failed");
+  const status = res.status;
+  const code = String((json && json.code) || "HTTP_" + status);
+  const message = String((json && json.message) || "FINZO error (" + status + ")");
+
+  // "definite" = FINZO did not create the order, so refunding the user is safe.
+  // 5xx, timeouts and DUPLICATE_ORDER_ID are uncertain: we check the order status instead.
+  let definite;
+  if (res.ok) {
+    definite = !!json; // 2xx with success:false
+  } else {
+    definite =
+      [400, 401, 403, 404, 405, 422, 429].includes(status) ||
+      (status === 409 && code !== "DUPLICATE_ORDER_ID");
   }
-  return json;
+
+  console.error("FINZO request failed:", method, path, status, code);
+  throw gatewayError(message, {
+    status,
+    code,
+    definite,
+    orderNotFound: status === 404 && /ORDER_NOT_FOUND/i.test(code),
+  });
 }
 
-async function createUpiOrder({ orderId, amount, customerId, callbackUrl, redirectUrl }) {
-  const json = await post(conf().paths.upiCreate, {
-    order_id: orderId,
-    amount: Number(amount).toFixed(2),
-    customer_id: customerId,
-    callback_url: callbackUrl,
-    redirect_url: redirectUrl,
+function parseStatus(json, label) {
+  const raw = pick(json, "status", "payment_status", "payout_status", "txn_status", "state");
+  if (raw === undefined) {
+    console.error("FINZO: no status in " + label + " response:", JSON.stringify(json).slice(0, 400));
+  }
+  return {
+    status: normalize(raw),
+    ref: String(pick(json, "payment_id", "paymentId", "transaction_id", "txn_id", "id", "receipt") || ""),
+    raw: json,
+  };
+}
+
+/* ------------------------------ DEPOSIT (UPI payment link) ------------------------------ */
+
+async function createUpiOrder({ orderId, amount }) {
+  const json = await call("POST", "/api/gateway/upi-payment", {
+    orderId,
+    body: { amount: Math.round(Number(amount)) },
   });
   const paymentUrl = pick(json, "payment_url", "paymentUrl", "url", "link");
-  if (!paymentUrl) throw definiteError("FINZO did not return a payment link");
+  if (!paymentUrl || !/^https:\/\//i.test(String(paymentUrl))) {
+    console.error("FINZO: no payment link in response:", JSON.stringify(json).slice(0, 400));
+    throw gatewayError("FINZO did not return a payment link", { code: "NO_PAYMENT_URL", definite: true });
+  }
   return {
-    gatewayRef: String(pick(json, "transaction_id", "txn_id", "id", "ref") || ""),
-    paymentUrl,
+    gatewayRef: String(pick(json, "payment_id", "paymentId", "transaction_id", "id") || ""),
+    paymentUrl: String(paymentUrl),
     raw: json,
   };
 }
 
 async function checkDeposit(orderId) {
-  const json = await post(conf().paths.upiStatus, { order_id: orderId });
-  return {
-    status: normalize(pick(json, "status", "payment_status", "txn_status")),
-    ref: String(pick(json, "transaction_id", "txn_id", "id") || ""),
-    amount: pick(json, "amount"),
-    raw: json,
-  };
+  const json = await call("GET", "/api/gateway/upi-payment/status", { query: { order_id: orderId } });
+  return parseStatus(json, "deposit status");
 }
+
+/* ------------------------------ WITHDRAW ------------------------------ */
 
 async function payoutUpi({ orderId, amount, upi, name }) {
-  const json = await post(conf().paths.payoutUpi, {
-    order_id: orderId,
-    amount: Number(amount).toFixed(2),
-    upi_id: upi,
-    name,
+  const json = await call("POST", "/api/gateway/payout", {
+    orderId,
+    body: {
+      method: "upi",
+      amount: Number(Number(amount).toFixed(2)),
+      upi_id: upi,
+      name,
+    },
   });
-  return {
-    status: normalize(pick(json, "status", "payout_status", "txn_status")),
-    ref: String(pick(json, "transaction_id", "txn_id", "id") || ""),
-    raw: json,
-  };
+  return parseStatus(json, "payout");
 }
 
-async function walletPay({ orderId, amount, wallet }) {
-  const json = await post(conf().paths.walletPay, {
-    order_id: orderId,
-    amount: Number(amount).toFixed(2),
-    wallet_id: wallet,
+async function walletPay({ orderId, amount, wallet, remark }) {
+  const json = await call("POST", "/api/gateway/pay", {
+    orderId,
+    body: {
+      number: wallet,
+      amount: Number(Number(amount).toFixed(2)),
+      remark: String(remark || "").slice(0, 120),
+    },
   });
-  return {
-    status: normalize(pick(json, "status", "payout_status", "txn_status")),
-    ref: String(pick(json, "transaction_id", "txn_id", "id") || ""),
-    raw: json,
-  };
+  return parseStatus(json, "wallet pay");
 }
 
-async function checkPayout(orderId) {
-  const json = await post(conf().paths.payoutStatus, { order_id: orderId });
+// UPI payouts and wallet payments use different status endpoints.
+async function checkPayout(orderId, method) {
+  const path = method === "upi" ? "/api/gateway/payout/status" : "/api/gateway/status";
+  const json = await call("GET", path, { query: { order_id: orderId } });
+  return parseStatus(json, "payout status");
+}
+
+// true / false, or null when FINZO could not tell us.
+async function walletExists(number) {
+  try {
+    const json = await call("GET", "/api/gateway/user", { query: { number } });
+    const v = pick(json, "wallet_exists", "walletExists", "exists");
+    if (v === undefined) return null;
+    return v === true || v === "true" || v === 1 || v === "1";
+  } catch (e) {
+    return null;
+  }
+}
+
+/* ------------------------------ CALLBACKS ------------------------------ */
+
+// X-Finzo-Signature = "sha256=" + HMAC-SHA256(raw body, API key), hex.
+function verifyCallback(rawBody, header) {
+  const key = conf().key;
+  if (!key || !rawBody || !header) return false;
+  let given = String(header).trim().toLowerCase();
+  if (!given.startsWith("sha256=")) given = "sha256=" + given;
+  const expected = "sha256=" + crypto.createHmac("sha256", key).update(rawBody, "utf8").digest("hex");
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// Reads a callback body without assuming exact field names.
+function parseEvent(body) {
+  const raw = pick(body, "status", "payment_status", "payout_status", "txn_status");
   return {
-    status: normalize(pick(json, "status", "payout_status", "txn_status")),
-    ref: String(pick(json, "transaction_id", "txn_id", "id") || ""),
-    raw: json,
+    event: body && body.event ? String(body.event) : "",
+    rawStatus: raw === undefined ? "" : String(raw),
+    status: normalize(raw),
+    orderIds: collect(body, ["unique_order_id", "uniqueOrderId", "api_order_id", "order_id", "orderId", "merchant_order_id"]),
+    refs: collect(body, ["payment_id", "paymentId", "transaction_id", "txn_id", "id"]),
   };
 }
 
 module.exports = {
+  depositLimits,
+  payoutLimits,
   createUpiOrder,
   checkDeposit,
   payoutUpi,
   walletPay,
   checkPayout,
+  walletExists,
   verifyCallback,
+  parseEvent,
   normalize,
   pick,
 };
