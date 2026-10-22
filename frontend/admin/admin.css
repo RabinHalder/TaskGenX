@@ -1,0 +1,59 @@
+/* TaskGenX admin panel styles (extends shared/theme.css and user/user.css) */
+
+.ad-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--accent-grad); color: #fff; font-size: 12px; font-weight: 700; }
+.ad-head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* Dashboard */
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.kpi { background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); border-radius: var(--radius-card); padding: 14px; }
+.kpi-ico { width: 36px; height: 36px; border-radius: 50%; background: var(--surface-2); color: var(--accent-1); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+.kpi b { display: block; font-size: 20px; font-weight: 800; letter-spacing: -.3px; }
+.kpi span { font-size: 12px; color: var(--text-soft); }
+.kpi small { display: block; font-size: 11px; color: var(--text-soft); margin-top: 2px; }
+.pend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pend { display: flex; align-items: center; gap: 10px; text-align: left; padding: 12px; border-radius: 18px; background: var(--surface-2); color: inherit; }
+.pend b { font-size: 22px; font-weight: 800; min-width: 28px; }
+.pend span { font-size: 12px; color: var(--text-soft); line-height: 1.3; }
+.pend.hot { background: rgba(247, 144, 9, .14); }
+.pend.hot b { color: var(--warning); }
+.chart-wrap svg { width: 100%; height: auto; display: block; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--text-soft); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+
+/* Lists and items */
+.ad-item { padding: 14px 0; border-bottom: 1px solid var(--border); }
+.ad-item:last-child { border-bottom: 0; }
+.ad-item .top { display: flex; gap: 12px; align-items: flex-start; }
+.ad-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.ad-actions .btn { flex: 1; min-width: 100px; }
+.btn-ok { background: var(--success); color: #fff; }
+.kv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.kv div { background: var(--surface-2); border-radius: 14px; padding: 10px 12px; font-size: 12px; color: var(--text-soft); }
+.kv b { display: block; font-size: 14px; color: var(--text); word-break: break-all; }
+.proof-img { width: 100%; max-height: 60vh; object-fit: contain; border-radius: 16px; background: var(--surface-2); display: block; margin-bottom: 12px; }
+.wrap-chips { flex-wrap: wrap; overflow: visible; }
+
+/* Forms */
+select.input { appearance: none; -webkit-appearance: none; padding-right: 38px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+.field-hint { font-size: 11px; color: var(--text-soft); margin-top: 4px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.edit-card { background: var(--surface-2); border-radius: 18px; padding: 12px; margin-bottom: 10px; }
+.edit-card .hd { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; margin-bottom: 10px; }
+.edit-card .input { background: var(--surface); }
+.edit-card .field { margin-bottom: 10px; }
+
+/* Settings accordion */
+.acc { padding: 0; overflow: hidden; }
+.acc-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; text-align: left; color: inherit; }
+.acc-head .chev { transition: transform .2s; }
+.acc.open .acc-head .chev { transform: rotate(180deg); }
+.acc-body { display: none; padding: 4px 16px 18px; }
+.acc.open .acc-body { display: block; }
+.tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--surface-2); font-size: 13px; font-weight: 600; }
+.tag button { display: flex; color: var(--danger); }
+
+/* Broadcast progress */
+.bc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; text-align: center; }
+.bc-stats b { display: block; font-size: 16px; font-weight: 800; }
+.bc-stats span { font-size: 11px; color: var(--text-soft); }
