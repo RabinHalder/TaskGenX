@@ -32,6 +32,11 @@ const paymentSchema = new Schema(
     },
 
     orderId: { type: String, required: true, unique: true },
+    // The Unique-Order-ID sent to FINZO for the latest payout attempt.
+    finzoOrderId: { type: String, default: "", index: true },
+    attempts: { type: Number, default: 0 },
+    processingAt: { type: Date, default: null },
+
     gatewayRef: { type: String, default: "" },
     paymentUrl: { type: String, default: "" },
     destination: { type: String, default: "" },
