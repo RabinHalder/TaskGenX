@@ -7,27 +7,14 @@ function cleanLevel(L) {
   if (!L) return null;
   return {
     name: L.name,
-    minTasks: L.minTasks,
-    minReferrals: L.minReferrals,
+    minTasks: Number(L.minTasks) || 0,
+    minReferrals: Number(L.minReferrals) || 0,
     withdrawFeePercent: L.withdrawFeePercent,
     monthlyWithdrawals: L.monthlyWithdrawals === undefined || L.monthlyWithdrawals === null ? 2 : L.monthlyWithdrawals,
   };
 }
 
-function computeLevel(settings, user) {
-  const levels = settings.levels || [];
-  let lvl = 1;
-  for (let i = 0; i < levels.length; i++) {
-    const L = levels[i];
-    if ((user.tasksApproved || 0) >= L.minTasks && (user.referralCount || 0) >= L.minReferrals) {
-      lvl = i + 1;
-    } else {
-      break;
-    }
-  }
-  return lvl;
-}
-
+// Progress toward the NEXT level: tasks counted since the user entered the current level.
 function levelInfo(settings, user) {
   const levels = settings.levels || [];
   const idx = Math.min(Math.max(user.level || 1, 1), levels.length || 1);
@@ -40,30 +27,53 @@ function levelInfo(settings, user) {
     next,
     progress: next
       ? {
-          tasks: { have: user.tasksApproved || 0, need: next.minTasks },
+          tasks: { have: Math.min(user.levelTasks || 0, next.minTasks), need: next.minTasks },
           referrals: { have: user.referralCount || 0, need: next.minReferrals },
         }
       : null,
   };
 }
 
-// Raises the stored level if the user qualifies, and notifies them.
+// Moves the user up one or more levels when the targets of the next level are met.
+// Bronze -> Silver uses the Silver targets, Silver -> Gold uses the Gold targets, and so on.
 async function syncLevel(user, settings) {
-  const target = computeLevel(settings, user);
-  if (target <= (user.level || 1)) return user.level || 1;
+  const levels = settings.levels || [];
+  const from = Math.min(Math.max(user.level || 1, 1), levels.length || 1);
+  let level = from;
+  let pool = user.levelTasks || 0;
+  let used = 0;
 
-  const res = await User.updateOne({ _id: user._id, level: { $lt: target } }, { $set: { level: target } });
+  while (level < levels.length) {
+    const nxt = levels[level];
+    const needTasks = Number(nxt.minTasks) || 0;
+    const needRefs = Number(nxt.minReferrals) || 0;
+    if (pool >= needTasks && (user.referralCount || 0) >= needRefs) {
+      pool -= needTasks;
+      used += needTasks;
+      level++;
+    } else {
+      break;
+    }
+  }
+  if (level === from) return from;
+
+  // Only one request can win this update (it checks the old level)
+  const res = await User.updateOne(
+    { _id: user._id, level: user.level || 1 },
+    { $set: { level }, $inc: { levelTasks: -used } }
+  );
   if (res.modifiedCount === 1) {
-    user.level = target;
-    const name = escapeHtml(((settings.levels || [])[target - 1] || {}).name || "");
+    user.level = level;
+    user.levelTasks = pool;
+    const name = escapeHtml((levels[level - 1] || {}).name || "");
     bot.notifyUser(
       user,
-      `Congratulations! You reached level ${target}: <b>${name}</b>.`,
-      `অভিনন্দন! আপনি লেভেল ${target} (<b>${name}</b>) এ পৌঁছেছেন।`,
+      `Congratulations! You reached level ${level}: <b>${name}</b>.`,
+      `অভিনন্দন! আপনি লেভেল ${level} (<b>${name}</b>) এ পৌঁছেছেন।`,
       [bot.openAppButton("Open TaskGenX")]
     );
   }
   return user.level;
 }
 
-module.exports = { cleanLevel, computeLevel, levelInfo, syncLevel };
+module.exports = { cleanLevel, levelInfo, syncLevel };
