@@ -6,17 +6,30 @@
   I18n.extend(
     {
       "pf.id": "ID {id}",
-      "pf.level": "Level {n} · {name}",
       "pf.since": "Member since {date}",
       "pf.statTasks": "Approved tasks",
       "pf.statEarned": "Total earned",
       "pf.statRefs": "Referrals",
       "pf.statWithdrawn": "Withdrawn",
+      "pf.lv.title": "Level",
+      "pf.lv.of": "Level {n} of {total}",
+      "pf.lv.next": "Next level: {name}",
+      "pf.lv.tasks": "Approved tasks",
+      "pf.lv.refs": "Referrals",
+      "pf.lv.hint": "Reach both targets to move up.",
+      "pf.lv.max": "You have reached the top level.",
+      "pf.lv.fee": "Withdraw fee",
+      "pf.lv.wd": "Withdrawals this month",
+      "pf.lv.cLevel": "Level",
+      "pf.lv.cTasks": "Tasks",
+      "pf.lv.cRefs": "Referrals",
+      "pf.lv.cFee": "Fee",
+      "pf.lv.cWd": "Withdrawals / month",
       "pf.detailsTitle": "Withdraw details",
       "pf.detailsSub": "Saved details are used when you withdraw.",
       "pf.upi": "UPI ID",
-      "pf.wallet": "FINZO Wallet ID",
-      "pf.walletPh": "Your FINZO wallet ID",
+      "pf.wallet": "FINZO Wallet number",
+      "pf.walletPh": "10-digit FINZO wallet number",
       "pf.prefs": "Preferences",
       "pf.language": "Language",
       "pf.theme": "Theme",
@@ -56,17 +69,30 @@
     },
     {
       "pf.id": "আইডি {id}",
-      "pf.level": "লেভেল {n} · {name}",
       "pf.since": "সদস্য হয়েছেন {date}",
       "pf.statTasks": "অনুমোদিত টাস্ক",
       "pf.statEarned": "মোট আয়",
       "pf.statRefs": "রেফারেল",
       "pf.statWithdrawn": "উইথড্র হয়েছে",
+      "pf.lv.title": "লেভেল",
+      "pf.lv.of": "{total}টির মধ্যে লেভেল {n}",
+      "pf.lv.next": "পরের লেভেল: {name}",
+      "pf.lv.tasks": "অনুমোদিত টাস্ক",
+      "pf.lv.refs": "রেফারেল",
+      "pf.lv.hint": "ওপরে উঠতে দুটো লক্ষ্যই পূরণ করতে হবে।",
+      "pf.lv.max": "আপনি সর্বোচ্চ লেভেলে পৌঁছে গেছেন।",
+      "pf.lv.fee": "উইথড্র ফি",
+      "pf.lv.wd": "এই মাসের উইথড্র",
+      "pf.lv.cLevel": "লেভেল",
+      "pf.lv.cTasks": "টাস্ক",
+      "pf.lv.cRefs": "রেফারেল",
+      "pf.lv.cFee": "ফি",
+      "pf.lv.cWd": "উইথড্র / মাস",
       "pf.detailsTitle": "উইথড্র তথ্য",
       "pf.detailsSub": "উইথড্র করার সময় সেভ করা তথ্য ব্যবহার হবে।",
       "pf.upi": "UPI আইডি",
-      "pf.wallet": "FINZO ওয়ালেট আইডি",
-      "pf.walletPh": "আপনার FINZO ওয়ালেট আইডি",
+      "pf.wallet": "FINZO ওয়ালেট নম্বর",
+      "pf.walletPh": "১০ সংখ্যার FINZO ওয়ালেট নম্বর",
       "pf.prefs": "পছন্দসমূহ",
       "pf.language": "ভাষা",
       "pf.theme": "থিম",
@@ -111,6 +137,7 @@
     deposit: "arrow-down-circle",
     withdraw: "arrow-up-circle",
     withdraw_refund: "refresh",
+    referral: "users",
     referral_l1: "users",
     referral_l2: "users",
     checkin: "calendar",
@@ -204,12 +231,66 @@
       UI.toast(t("common.saved"), "success");
     },
 
+    /* ----------------------------- LEVEL CARD ----------------------------- */
+
+    levelCard(me) {
+      const lv = me.level;
+      const cur = lv.current;
+      if (!cur) return "";
+      const levels = me.config.levels || [];
+      const used = me.stats.withdrawalsThisMonth || 0;
+
+      let next;
+      if (lv.next && lv.progress) {
+        const bar = (label, have, need) => {
+          const pct = need > 0 ? Math.min(100, Math.round((have / need) * 100)) : 100;
+          return (
+            '<div class="prog-line"><div class="meta"><span>' + esc(label) + "</span><b>" +
+            UI.num(Math.min(have, need)) + "/" + UI.num(need) + "</b></div>" +
+            '<div class="progress"><span style="width:' + pct + '%"></span></div></div>'
+          );
+        };
+        next =
+          '<div class="card-sub" style="margin-bottom:10px">' + esc(t("pf.lv.next", { name: lv.next.name })) + "</div>" +
+          bar(t("pf.lv.tasks"), lv.progress.tasks.have, lv.progress.tasks.need) +
+          bar(t("pf.lv.refs"), lv.progress.referrals.have, lv.progress.referrals.need) +
+          '<div class="card-sub">' + esc(t("pf.lv.hint")) + "</div>";
+      } else {
+        next = '<div class="card-sub">' + esc(t("pf.lv.max")) + "</div>";
+      }
+
+      // One line per level: tasks, referrals, withdraw fee, withdrawals per month
+      const rows = levels
+        .map((L, i) => {
+          const n = i + 1;
+          const state = n < lv.level ? "done" : n === lv.level ? "cur" : "todo";
+          return (
+            '<div class="ladder-row ' + state + '"><div class="nm"><i class="dot"></i><span>' + esc(L.name) + "</span></div>" +
+            '<div class="c">' + UI.num(L.minTasks) + '</div><div class="c">' + UI.num(L.minReferrals) + "</div>" +
+            '<div class="c">' + esc(L.withdrawFeePercent) + '%</div><div class="c">' + esc(L.monthlyWithdrawals) + "</div></div>"
+          );
+        })
+        .join("");
+
+      return (
+        '<div class="card"><div class="lvl-head"><div class="lvl-badge">' + icon(lv.level >= 5 ? "crown" : "award", "lg") + "</div>" +
+        '<div><div class="lvl-name">' + esc(cur.name) + '</div><div class="card-sub">' + esc(t("pf.lv.of", { n: lv.level, total: lv.totalLevels })) + "</div></div></div>" +
+        next +
+        '<div class="perks"><div class="perk">' + esc(t("pf.lv.fee")) + "<b>" + esc(cur.withdrawFeePercent) + "%</b></div>" +
+        '<div class="perk">' + esc(t("pf.lv.wd")) + "<b>" + esc(used + " / " + cur.monthlyWithdrawals) + "</b></div></div>" +
+        '<div class="ladder"><div class="ladder-row head"><div class="nm">' + esc(t("pf.lv.cLevel")) + "</div>" +
+        '<div class="c">' + esc(t("pf.lv.cTasks")) + '</div><div class="c">' + esc(t("pf.lv.cRefs")) + "</div>" +
+        '<div class="c">' + esc(t("pf.lv.cFee")) + '</div><div class="c">' + esc(t("pf.lv.cWd")) + "</div></div>" +
+        rows + "</div></div>"
+      );
+    },
+
     /* ----------------------------- RENDER ----------------------------- */
 
     render() {
       const me = App.me;
       if (!this.root || !me) return;
-      const u = me.user, cfg = me.config, lv = me.level;
+      const u = me.user, cfg = me.config;
 
       const oldUpi = this.root.querySelector("#pf-upi");
       const oldWal = this.root.querySelector("#pf-wallet");
@@ -224,28 +305,29 @@
       }).join("");
       const isCustom = accent && !UI.ACCENTS.includes(accent);
       const custom =
-        '<label class="swatch swatch-custom ' + (isCustom ? "active" : "") + '"><input type="color" id="pf-color" value="' + (isCustom ? accent : "#6a5cff") + '" /></label>';
+        '<label class="swatch swatch-custom ' + (isCustom ? "active" : "") + '"><input type="color" id="pf-color" value="' + (isCustom ? accent : "#4c5bff") + '" /></label>';
 
       const stat = (label, value) => '<div class="card"><div class="stat"><b>' + esc(value) + "</b><span>" + esc(label) + "</span></div></div>";
       const input = (id, label, val, ph, mode) =>
-        '<div class="field"><label>' + esc(label) + '</label><input class="input" id="' + id + '" type="text" maxlength="256" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(val) + '" placeholder="' + esc(ph) + '" /></div>';
+        '<div class="field"><label>' + esc(label) + '</label><input class="input" id="' + id + '" type="text" maxlength="256" inputmode="' + (mode || "text") + '" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(val) + '" placeholder="' + esc(ph) + '" /></div>';
 
       this.root.innerHTML =
         '<div class="profile-head">' +
         '<span class="av-wrap ' + (me.isAdmin ? "admin" : "") + '" data-admin-toggle>' + UI.avatar({ name, photoUrl: u.photoUrl }, "avatar-lg tap") + "</span>" +
         '<div class="profile-name">' + esc(name) + "</div>" +
         '<div class="card-sub">' + (u.username ? "@" + esc(u.username) + " · " : "") + esc(t("pf.id", { id: u.tgId })) + "</div>" +
-        (lv.current ? '<span class="chip-lite">' + icon("award", "sm") + esc(t("pf.level", { n: lv.level, name: I18n.levelName(lv.current) })) + "</span>" : "") +
-        '<div class="card-sub" style="margin-top:8px">' + esc(t("pf.since", { date: UI.date(u.createdAt) })) + "</div></div>" +
+        '<div class="card-sub" style="margin-top:6px">' + esc(t("pf.since", { date: UI.date(u.createdAt) })) + "</div></div>" +
 
         '<div class="grid2">' +
         stat(t("pf.statTasks"), UI.num(u.tasksApproved)) + stat(t("pf.statEarned"), money(u.totalEarned)) +
         stat(t("pf.statRefs"), UI.num(u.referralCount)) + stat(t("pf.statWithdrawn"), money(u.totalWithdrawn)) +
         "</div>" +
 
+        this.levelCard(me) +
+
         '<div class="card" id="pf-details"><div class="card-title">' + esc(t("pf.detailsTitle")) + '</div><div class="card-sub" style="margin-bottom:14px">' + esc(t("pf.detailsSub")) + "</div>" +
         input("pf-upi", t("pf.upi"), upiVal, "name@bank") +
-        input("pf-wallet", t("pf.wallet"), walVal, t("pf.walletPh")) +
+        input("pf-wallet", t("pf.wallet"), walVal, t("pf.walletPh"), "numeric") +
         '<button class="btn btn-primary btn-block" data-act="saveDetails">' + icon("check", "sm") + esc(t("common.save")) + "</button></div>" +
 
         '<div class="card"><div class="card-title" style="margin-bottom:10px">' + esc(t("pf.prefs")) + "</div>" +
