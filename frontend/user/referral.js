@@ -1,4 +1,4 @@
-/* TaskGenX user panel: Referral (2 levels) */
+/* TaskGenX user panel: Referral (single level, fixed reward) */
 (function () {
   "use strict";
   const { esc, icon, money } = UI;
@@ -6,43 +6,45 @@
   I18n.extend(
     {
       "ref.title": "Referral",
-      "ref.sub": "Invite friends and earn from their tasks.",
-      "ref.heroTitle": "Invite and earn",
-      "ref.heroText": "Earn {l1}% of every task your friends earn, plus {l2}% from the friends they invite.",
+      "ref.sub": "Invite friends and earn a reward for each one.",
+      "ref.heroTitle": "Earn {amount} per referral",
+      "ref.heroFirst": "You get {amount} when a friend joins with your link and gets their first task approved.",
+      "ref.heroJoin": "You get {amount} as soon as a friend joins with your link.",
       "ref.code": "Your referral code",
       "ref.link": "Your invite link",
       "ref.share": "Share invite link",
       "ref.shareText": "Join {app}, complete simple tasks and earn real money!",
       "ref.noLink": "The invite link is not ready yet. Share your referral code with friends instead.",
-      "ref.l1": "Level 1",
-      "ref.l2": "Level 2",
-      "ref.friends": "{n} friends",
+      "ref.invited": "Invited",
+      "ref.rewarded": "Rewarded",
       "ref.earned": "Earned",
-      "ref.total": "Total referral earnings",
-      "ref.list": "Your direct referrals",
+      "ref.list": "Your referrals",
       "ref.tasks": "{n} tasks",
       "ref.joined": "Joined {date}",
+      "ref.stRewarded": "Rewarded",
+      "ref.stPending": "Pending",
       "ref.empty": "No referrals yet. Share your link to get started!",
       "ref.off": "The referral program is paused right now.",
     },
     {
       "ref.title": "রেফারেল",
-      "ref.sub": "বন্ধুদের আমন্ত্রণ জানান এবং তাদের টাস্ক থেকে আয় করুন।",
-      "ref.heroTitle": "আমন্ত্রণ জানান, আয় করুন",
-      "ref.heroText": "বন্ধুদের প্রতিটি টাস্ক আয়ের {l1}% এবং তারা যাদের আমন্ত্রণ করবে তাদের আয়ের {l2}% আপনি পাবেন।",
+      "ref.sub": "বন্ধুদের আমন্ত্রণ জানান এবং প্রতিজনের জন্য পুরস্কার পান।",
+      "ref.heroTitle": "প্রতি রেফারেলে {amount} আয় করুন",
+      "ref.heroFirst": "আপনার লিংকে যোগ দিয়ে কোনো বন্ধুর প্রথম টাস্ক অনুমোদিত হলে আপনি {amount} পাবেন।",
+      "ref.heroJoin": "আপনার লিংকে কোনো বন্ধু যোগ দিলেই আপনি {amount} পাবেন।",
       "ref.code": "আপনার রেফারেল কোড",
       "ref.link": "আপনার আমন্ত্রণ লিংক",
       "ref.share": "আমন্ত্রণ লিংক শেয়ার করুন",
       "ref.shareText": "{app}-এ যোগ দিন, সহজ টাস্ক করুন এবং আসল টাকা আয় করুন!",
       "ref.noLink": "আমন্ত্রণ লিংক এখনো তৈরি হয়নি। বন্ধুদের সাথে আপনার রেফারেল কোড শেয়ার করুন।",
-      "ref.l1": "লেভেল ১",
-      "ref.l2": "লেভেল ২",
-      "ref.friends": "{n} জন বন্ধু",
-      "ref.earned": "আয়",
-      "ref.total": "মোট রেফারেল আয়",
-      "ref.list": "আপনার সরাসরি রেফারেল",
+      "ref.invited": "আমন্ত্রিত",
+      "ref.rewarded": "পুরস্কার পেয়েছেন",
+      "ref.earned": "মোট আয়",
+      "ref.list": "আপনার রেফারেল",
       "ref.tasks": "{n}টি টাস্ক",
       "ref.joined": "যোগ দিয়েছেন {date}",
+      "ref.stRewarded": "পুরস্কৃত",
+      "ref.stPending": "অপেক্ষমাণ",
       "ref.empty": "এখনো কোনো রেফারেল নেই। শুরু করতে আপনার লিংক শেয়ার করুন!",
       "ref.off": "রেফারেল প্রোগ্রাম এখন বন্ধ আছে।",
     }
@@ -91,11 +93,7 @@
         return;
       }
 
-      const levelCard = (key, pct, friends, earned) =>
-        '<div class="card"><div class="stat"><span>' + esc(t(key)) + "</span><b>" + esc(pct) + "%</b>" +
-        '<span>' + esc(t("ref.friends", { n: friends })) + "</span><br>" +
-        '<span>' + esc(t("ref.earned")) + ": <b style=\"display:inline;font-size:13px\">" + esc(money(earned)) + "</b></span></div></div>";
-
+      const amount = money(d.reward);
       const people = d.referrals.length
         ? '<div class="card">' +
           d.referrals
@@ -103,8 +101,8 @@
               (r) =>
                 '<div class="row"><div class="row-ico">' + icon("user") + "</div>" +
                 '<div class="row-main"><div class="row-title">' + esc(r.name === "Hidden user" ? t("common.hidden") : r.name) + "</div>" +
-                '<div class="row-sub">' + esc(t("ref.joined", { date: UI.date(r.joinedAt) })) + "</div></div>" +
-                '<div class="row-end"><span class="badge ok">' + esc(t("ref.tasks", { n: r.tasks })) + "</span></div></div>"
+                '<div class="row-sub">' + esc(t("ref.joined", { date: UI.date(r.joinedAt) })) + " · " + esc(t("ref.tasks", { n: r.tasks })) + "</div></div>" +
+                '<div class="row-end"><span class="badge ' + (r.rewarded ? "ok" : "wait") + '">' + esc(t(r.rewarded ? "ref.stRewarded" : "ref.stPending")) + "</span></div></div>"
             )
             .join("") +
           "</div>"
@@ -112,7 +110,7 @@
 
       this.root.innerHTML =
         head +
-        '<div class="ref-hero"><h3>' + esc(t("ref.heroTitle")) + "</h3><p>" + esc(t("ref.heroText", { l1: d.percent.l1, l2: d.percent.l2 })) + "</p>" +
+        '<div class="ref-hero"><h3>' + esc(t("ref.heroTitle", { amount })) + "</h3><p>" + esc(t(d.payOn === "join" ? "ref.heroJoin" : "ref.heroFirst", { amount })) + "</p>" +
         '<div class="copy-box"><div class="val"><small>' + esc(t("ref.code")) + "</small>" + esc(d.code) + "</div>" +
         '<button class="icon-btn" data-act="copyCode" aria-label="' + esc(t("common.copy")) + '">' + icon("copy") + "</button></div>" +
         (d.link
@@ -121,8 +119,10 @@
             '<button class="btn btn-light btn-block" data-act="share">' + icon("share", "sm") + esc(t("ref.share")) + "</button>"
           : '<p style="margin-top:12px">' + esc(t("ref.noLink")) + "</p>") +
         "</div>" +
-        '<div class="grid2">' + levelCard("ref.l1", d.percent.l1, d.counts.l1, d.earned.l1) + levelCard("ref.l2", d.percent.l2, d.counts.l2, d.earned.l2) + "</div>" +
-        '<div class="card"><div class="stat"><span>' + esc(t("ref.total")) + "</span><b>" + esc(money(d.total)) + "</b></div></div>" +
+        '<div class="mini-stats">' +
+        '<div class="mini-stat"><b>' + UI.num(d.counts.joined) + "</b><span>" + esc(t("ref.invited")) + "</span></div>" +
+        '<div class="mini-stat"><b>' + UI.num(d.counts.rewarded) + "</b><span>" + esc(t("ref.rewarded")) + "</span></div>" +
+        '<div class="mini-stat"><b>' + esc(money(d.total)) + "</b><span>" + esc(t("ref.earned")) + "</span></div></div>" +
         '<div class="section-head"><div class="section-title">' + esc(t("ref.list")) + "</div></div>" +
         people;
     },
