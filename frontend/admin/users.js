@@ -22,7 +22,7 @@
       "ad.u.refEarn": "Referral earnings",
       "ad.u.level": "Level",
       "ad.u.tasks": "Approved tasks",
-      "ad.u.refs": "Referrals (L1 / L2)",
+      "ad.u.refs": "Referrals (joined / rewarded)",
       "ad.u.refBy": "Referred by",
       "ad.u.joined": "Joined",
       "ad.u.lastSeen": "Last seen",
@@ -32,7 +32,6 @@
       "ad.u.botBlocked": "Bot blocked",
       "ad.u.never": "Never",
       "ad.u.none": "None",
-      "ad.u.banReason": "Ban reason",
       "ad.u.adjust": "Adjust balance",
       "ad.u.ban": "Ban user",
       "ad.u.unban": "Unban user",
@@ -68,7 +67,7 @@
       "ad.u.refEarn": "রেফারেল আয়",
       "ad.u.level": "লেভেল",
       "ad.u.tasks": "অনুমোদিত টাস্ক",
-      "ad.u.refs": "রেফারেল (লেভেল ১ / ২)",
+      "ad.u.refs": "রেফারেল (যোগ দিয়েছে / পুরস্কৃত)",
       "ad.u.refBy": "যার রেফারেলে এসেছেন",
       "ad.u.joined": "যোগ দিয়েছেন",
       "ad.u.lastSeen": "শেষ দেখা",
@@ -78,7 +77,6 @@
       "ad.u.botBlocked": "বট ব্লক করেছে",
       "ad.u.never": "কখনো না",
       "ad.u.none": "নেই",
-      "ad.u.banReason": "ব্যানের কারণ",
       "ad.u.adjust": "ব্যালেন্স সমন্বয়",
       "ad.u.ban": "ইউজার ব্যান করুন",
       "ad.u.unban": "ইউজার আনব্যান করুন",
@@ -244,7 +242,7 @@
           kv(t("ad.u.balance"), money(u.balance)) + kv(t("ad.u.earned"), money(u.totalEarned)) +
           kv(t("ad.u.deposited"), money(u.totalDeposited)) + kv(t("ad.u.withdrawn"), money(u.totalWithdrawn)) +
           kv(t("ad.u.refEarn"), money(u.referralEarnings)) + kv(t("ad.u.level"), String(u.level)) +
-          kv(t("ad.u.tasks"), UI.num(u.tasksApproved)) + kv(t("ad.u.refs"), u.referralCount + " / " + u.referralCount2) +
+          kv(t("ad.u.tasks"), UI.num(u.tasksApproved)) + kv(t("ad.u.refs"), u.referralCount + " / " + u.referralsRewarded) +
           kv(t("ad.u.refBy"), u.referredBy ? String(u.referredBy) : t("ad.u.none")) + kv(t("ad.u.wdCount"), UI.num(u.successfulWithdrawals)) +
           kv(t("ad.u.joined"), UI.date(u.createdAt)) + kv(t("ad.u.lastSeen"), u.lastSeenAt ? UI.timeAgo(u.lastSeenAt) : t("ad.u.never")) +
           kv(t("ad.u.upi"), u.withdrawDetails && u.withdrawDetails.upi ? u.withdrawDetails.upi : t("ad.u.none")) +
