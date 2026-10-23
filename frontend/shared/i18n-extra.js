@@ -1,0 +1,25 @@
+/* TaskGenX: extra texts and server-message translations */
+(function () {
+  "use strict";
+
+  I18n.extend({ "tx.referral": "Referral reward" }, { "tx.referral": "রেফারেল পুরস্কার" });
+
+  const base = I18n.serverMessage;
+  const rules = [
+    [
+      /^Monthly withdrawal limit reached: (\d+) per month at your level$/,
+      (n) => `আপনার লেভেলে মাসে সর্বোচ্চ ${n}টি উইথড্র করা যায়। এই মাসের সীমা শেষ হয়েছে`,
+    ],
+  ];
+
+  I18n.serverMessage = function (msg) {
+    msg = String(msg || "");
+    if (I18n.lang() === "bn") {
+      for (const [rx, fn] of rules) {
+        const m = msg.match(rx);
+        if (m) return fn(...m.slice(1));
+      }
+    }
+    return base(msg);
+  };
+})();
