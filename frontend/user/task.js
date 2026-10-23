@@ -7,21 +7,21 @@
     {
       "task.title": "Tasks",
       "task.sub": "Pick a task, finish it and upload proof to earn.",
+      "task.subLevel": "Tasks for your level: {name}",
       "task.tabTasks": "Tasks",
       "task.tabHistory": "History",
       "task.all": "All",
-      "task.empty": "No tasks available right now. Check back soon!",
+      "task.empty": "No new tasks right now. You have done everything available for your level. Check back soon!",
       "task.loadFail": "Could not load tasks.",
-      "task.done": "Completed",
-      "task.review": "In review",
       "task.full": "Full",
       "task.expired": "Expired",
-      "task.progress": "{used}/{limit} done",
+      "task.rejected": "Rejected · try again",
       "task.left": "{n} slots left",
-      "task.dProgress": "Your progress",
       "task.dSlots": "Slots left",
       "task.dExpires": "Expires",
       "task.dProof": "Proof",
+      "task.dOnce": "Completion",
+      "task.once": "Once per user",
       "task.unlimited": "Unlimited",
       "task.noExpiry": "No expiry",
       "task.proofYes": "Screenshot",
@@ -35,10 +35,9 @@
       "task.needProof": "Please upload a screenshot first",
       "task.tooLarge": "The image is too large. Choose a smaller one.",
       "task.sent": "Submitted! We will review it soon.",
-      "task.msgDone": "You have completed this task.",
-      "task.msgReview": "Your proof is under review.",
       "task.msgFull": "All slots for this task are filled.",
       "task.msgExpired": "This task has expired.",
+      "task.rejNote": "Your last proof was rejected: {reason}",
       "task.hPending": "Pending",
       "task.hApproved": "Approved",
       "task.hRejected": "Rejected",
@@ -48,21 +47,21 @@
     {
       "task.title": "টাস্ক",
       "task.sub": "একটি টাস্ক বেছে নিন, সম্পন্ন করুন এবং প্রমাণ আপলোড করে আয় করুন।",
+      "task.subLevel": "আপনার লেভেলের টাস্ক: {name}",
       "task.tabTasks": "টাস্ক",
       "task.tabHistory": "হিস্টোরি",
       "task.all": "সব",
-      "task.empty": "এখন কোনো টাস্ক নেই। একটু পরে আবার দেখুন!",
+      "task.empty": "এখন নতুন কোনো টাস্ক নেই। আপনার লেভেলের সব টাস্ক আপনি শেষ করেছেন। একটু পরে আবার দেখুন!",
       "task.loadFail": "টাস্ক লোড করা যায়নি।",
-      "task.done": "সম্পন্ন",
-      "task.review": "যাচাইয়ে আছে",
       "task.full": "পূর্ণ",
       "task.expired": "মেয়াদ শেষ",
-      "task.progress": "{used}/{limit} সম্পন্ন",
+      "task.rejected": "বাতিল · আবার চেষ্টা করুন",
       "task.left": "আর {n}টি সুযোগ বাকি",
-      "task.dProgress": "আপনার অগ্রগতি",
       "task.dSlots": "বাকি সুযোগ",
       "task.dExpires": "মেয়াদ",
       "task.dProof": "প্রমাণ",
+      "task.dOnce": "সম্পন্ন করা",
+      "task.once": "প্রতি ইউজার একবার",
       "task.unlimited": "সীমাহীন",
       "task.noExpiry": "মেয়াদ নেই",
       "task.proofYes": "স্ক্রিনশট",
@@ -76,10 +75,9 @@
       "task.needProof": "আগে একটি স্ক্রিনশট আপলোড করুন",
       "task.tooLarge": "ছবিটি অনেক বড়। ছোট একটি ছবি বেছে নিন।",
       "task.sent": "জমা হয়েছে! শীঘ্রই আমরা যাচাই করব।",
-      "task.msgDone": "আপনি এই টাস্ক সম্পন্ন করেছেন।",
-      "task.msgReview": "আপনার প্রমাণ যাচাই চলছে।",
       "task.msgFull": "এই টাস্কের সব সুযোগ পূর্ণ হয়ে গেছে।",
       "task.msgExpired": "এই টাস্কের মেয়াদ শেষ।",
+      "task.rejNote": "আপনার আগের প্রমাণ বাতিল হয়েছে: {reason}",
       "task.hPending": "অপেক্ষমাণ",
       "task.hApproved": "অনুমোদিত",
       "task.hRejected": "বাতিল",
@@ -88,8 +86,8 @@
     }
   );
 
+  // Tasks the user already submitted are hidden by the server, so only these states can show up here
   function state(tk) {
-    if (tk.completed) return "done";
     if (tk.full) return "full";
     if (tk.expiresAt && new Date(tk.expiresAt).getTime() <= Date.now()) return "expired";
     return "open";
@@ -201,9 +199,11 @@
 
     render() {
       if (!this.root || !App.me) return;
+      const lvl = App.me.level && App.me.level.current;
       const seg = (v, key) => '<button class="' + (this.view === v ? "active" : "") + '" data-act="view" data-v="' + v + '">' + esc(t(key)) + "</button>";
       this.root.innerHTML =
-        '<div class="page-head"><div class="page-title">' + esc(t("task.title")) + '</div><div class="page-sub">' + esc(t("task.sub")) + "</div></div>" +
+        '<div class="page-head"><div class="page-title">' + esc(t("task.title")) + '</div><div class="page-sub">' +
+        esc(lvl ? t("task.subLevel", { name: lvl.name }) : t("task.sub")) + "</div></div>" +
         '<div class="seg">' + seg("tasks", "task.tabTasks") + seg("history", "task.tabHistory") + "</div>" +
         (this.view === "tasks" ? this.tasksHtml() : this.histHtml());
       const active = this.root.querySelector(".chip.active");
@@ -227,7 +227,7 @@
 
       const cats = App.me.config.categories || [];
       const chip = (v, label) => '<button class="chip ' + (this.cat === v ? "active" : "") + '" data-act="cat" data-v="' + esc(v) + '">' + esc(label) + "</button>";
-      const chips = '<div class="chips">' + chip("all", t("task.all")) + cats.map((c) => chip(c.id, I18n.pick(c.en, c.bn))).join("") + "</div>";
+      const chips = '<div class="chips">' + chip("all", t("task.all")) + cats.map((c) => chip(c.id, c.en)).join("") + "</div>";
 
       const rank = (tk) => (state(tk) === "open" ? 0 : 1);
       const list = this.tasks.filter((tk) => this.cat === "all" || tk.category === this.cat).sort((a, b) => rank(a) - rank(b));
@@ -238,16 +238,15 @@
 
     cardHtml(tk) {
       const st = state(tk);
-      const used = tk.myApproved + tk.myPending;
       let badge = "";
-      if (tk.myPending > 0 && st === "done") badge = '<span class="badge wait">' + esc(t("task.review")) + "</span>";
-      else if (st === "done") badge = '<span class="badge ok">' + esc(t("task.done")) + "</span>";
-      else if (st === "full") badge = '<span class="badge bad">' + esc(t("task.full")) + "</span>";
+      if (st === "full") badge = '<span class="badge bad">' + esc(t("task.full")) + "</span>";
       else if (st === "expired") badge = '<span class="badge bad">' + esc(t("task.expired")) + "</span>";
+      else if (tk.myRejected > 0) badge = '<span class="badge bad">' + esc(t("task.rejected")) + "</span>";
 
-      const meta = ['<span>' + icon("check-circle") + esc(t("task.progress", { used, limit: tk.limitPerUser })) + "</span>"];
+      const meta = [];
       if (tk.remaining !== null) meta.push("<span>" + icon("users") + esc(t("task.left", { n: tk.remaining })) + "</span>");
       if (tk.expiresAt && st === "open") meta.push("<span>" + icon("clock") + esc(UI.timeLeft(tk.expiresAt)) + "</span>");
+      if (!meta.length) meta.push("<span>" + icon("check-circle") + esc(t("task.once")) + "</span>");
 
       return (
         '<button class="card task-card ' + (st === "open" ? "" : "dim") + '" data-act="open" data-id="' + esc(tk.id) + '">' +
@@ -318,19 +317,19 @@
             '<button class="btn btn-primary btn-block" id="t-submit" disabled>' + icon("upload", "sm") + esc(t("task.submit")) + "</button>"
           : '<button class="btn btn-primary btn-block" id="t-submit">' + icon("check", "sm") + esc(t("task.markDone")) + "</button>";
       } else {
-        const msg = st === "done" ? (tk.myPending > 0 ? t("task.msgReview") : t("task.msgDone")) : st === "full" ? t("task.msgFull") : t("task.msgExpired");
-        action = '<div class="note">' + icon("info") + "<div>" + esc(msg) + "</div></div>";
+        action = '<div class="note">' + icon("info") + "<div>" + esc(st === "full" ? t("task.msgFull") : t("task.msgExpired")) + "</div></div>";
       }
 
       sh.el.innerHTML =
         '<div class="flex between" style="align-items:flex-start;margin-bottom:6px">' +
         '<div class="sheet-title" style="margin:0">' + esc(I18n.loc(tk.title)) + '</div><div class="reward-pill">' + esc(money(tk.reward)) + "</div></div>" +
         (desc ? '<div class="desc">' + esc(desc) + "</div>" : '<div style="height:10px"></div>') +
+        (tk.rejectReason ? '<div class="hist-reject" style="margin-bottom:14px">' + esc(t("task.rejNote", { reason: tk.rejectReason })) + "</div>" : "") +
         '<div class="info-grid">' +
-        cell(t("task.dProgress"), t("task.progress", { used: tk.myApproved + tk.myPending, limit: tk.limitPerUser })) +
         cell(t("task.dSlots"), tk.remaining === null ? t("task.unlimited") : String(tk.remaining)) +
         cell(t("task.dExpires"), tk.expiresAt ? UI.timeLeft(tk.expiresAt) : t("task.noExpiry")) +
         cell(t("task.dProof"), tk.proofRequired ? t("task.proofYes") : t("task.proofNo")) +
+        cell(t("task.dOnce"), t("task.once")) +
         "</div>" +
         (tk.link ? '<button class="btn btn-ghost btn-block" id="t-link" style="margin-bottom:14px">' + icon("external-link", "sm") + esc(t("task.openLink")) + "</button>" : "") +
         action;
@@ -388,6 +387,7 @@
         sh.close();
         UI.confetti();
         UI.toast(t("task.sent"), "success");
+        // The submitted task leaves the list. It comes back only if the admin rejects it.
         Page.loadTasks();
         Page.hist.loaded = false;
         App.refreshMe({ silent: true });
