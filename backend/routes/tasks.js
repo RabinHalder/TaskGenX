@@ -24,9 +24,32 @@ function receiveUpload(req, res, next) {
   });
 }
 
-function taskView(t, mine, withLink) {
-  const m = mine[String(t._id)] || { pending: 0, approved: 0 };
-  const used = m.pending + m.approved;
+// A task is for one level (task.level) or for everyone (0 / not set)
+const canSee = (task, user) => !task.level || task.level === user.level;
+
+function levelFilter(user) {
+  return { $or: [{ level: 0 }, { level: user.level }, { level: { $exists: false } }] };
+}
+
+// What this user already did. pending + approved = done. rejected = can be done again.
+async function myMarks(tgId) {
+  const rows = await Submission.aggregate([
+    { $match: { tgId, status: { $in: ["pending", "approved", "rejected"] } } },
+    { $group: { _id: { task: "$task", status: "$status" }, n: { $sum: 1 } } },
+  ]);
+  const map = {};
+  const doneIds = [];
+  for (const r of rows) {
+    const k = String(r._id.task);
+    map[k] = map[k] || { pending: 0, approved: 0, rejected: 0 };
+    map[k][r._id.status] = r.n;
+    if (r._id.status !== "rejected") doneIds.push(r._id.task);
+  }
+  return { map, doneIds };
+}
+
+function taskView(t, map, withLink) {
+  const m = map[String(t._id)] || { pending: 0, approved: 0, rejected: 0 };
   const full = t.totalLimit > 0 && t.filled >= t.totalLimit;
   const view = {
     id: t._id,
@@ -35,10 +58,10 @@ function taskView(t, mine, withLink) {
     category: t.category,
     reward: t.reward,
     proofRequired: t.proofRequired,
-    limitPerUser: t.limitPerUser,
     myPending: m.pending,
     myApproved: m.approved,
-    completed: used >= t.limitPerUser,
+    myRejected: m.rejected,
+    completed: m.pending + m.approved > 0,
     full,
     remaining: t.totalLimit > 0 ? Math.max(0, t.totalLimit - t.filled) : null,
     expiresAt: t.expiresAt,
@@ -47,38 +70,23 @@ function taskView(t, mine, withLink) {
   return view;
 }
 
-async function myCounts(tgId) {
-  const rows = await Submission.aggregate([
-    { $match: { tgId, status: { $in: ["pending", "approved"] } } },
-    { $group: { _id: { task: "$task", status: "$status" }, n: { $sum: 1 } } },
-  ]);
-  const map = {};
-  for (const r of rows) {
-    const k = String(r._id.task);
-    map[k] = map[k] || { pending: 0, approved: 0 };
-    map[k][r._id.status] = r.n;
-  }
-  return map;
-}
-
-function activeFilter() {
-  return {
-    active: true,
-    $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
-  };
-}
-
+// Tasks for the user's level. Tasks the user already submitted are hidden.
+// If the admin rejects a submission, the task shows up again.
 router.get(
   "/",
   authenticate,
   wrap(async (req, res) => {
-    const filter = activeFilter();
+    const now = new Date();
+    const { map, doneIds } = await myMarks(req.user.tgId);
+    const filter = {
+      active: true,
+      _id: { $nin: doneIds },
+      $and: [{ $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] }, levelFilter(req.user)],
+    };
     if (req.query.category) filter.category = String(req.query.category);
-    const [tasks, mine] = await Promise.all([
-      Task.find(filter).sort({ sortOrder: -1, createdAt: -1 }).limit(200).lean(),
-      myCounts(req.user.tgId),
-    ]);
-    res.json({ items: tasks.map((t) => taskView(t, mine, false)) });
+
+    const tasks = await Task.find(filter).sort({ sortOrder: -1, createdAt: -1 }).limit(200).lean();
+    res.json({ items: tasks.map((t) => taskView(t, map, false)) });
   })
 );
 
@@ -129,9 +137,21 @@ router.get(
   wrap(async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) throw fail(404, "Task not found");
     const t = await Task.findById(req.params.id).lean();
-    if (!t || !t.active) throw fail(404, "Task not found");
-    const mine = await myCounts(req.user.tgId);
-    res.json({ task: taskView(t, mine, true) });
+    if (!t || !t.active || !canSee(t, req.user)) throw fail(404, "Task not found");
+
+    const { map } = await myMarks(req.user.tgId);
+    const view = taskView(t, map, true);
+
+    // Show why the last proof was rejected
+    view.rejectReason = "";
+    if (view.myRejected > 0) {
+      const last = await Submission.findOne({ user: req.user._id, task: t._id, status: "rejected" })
+        .sort({ reviewedAt: -1 })
+        .select("rejectReason")
+        .lean();
+      view.rejectReason = last ? last.rejectReason : "";
+    }
+    res.json({ task: view });
   })
 );
 
@@ -146,14 +166,16 @@ router.post(
     const task = await Task.findById(req.params.id);
     const now = new Date();
     if (!task || !task.active) throw fail(404, "Task not found");
+    if (!canSee(task, user)) throw fail(403, "This task is not available for your level");
     if (task.expiresAt && task.expiresAt <= now) throw fail(400, "This task has expired");
 
+    // Once per user. A rejected submission does not count, so it can be done again.
     const mine = await Submission.countDocuments({
       user: user._id,
       task: task._id,
       status: { $in: ["pending", "approved"] },
     });
-    if (mine >= task.limitPerUser) throw fail(400, "You have reached the limit for this task");
+    if (mine >= 1) throw fail(400, "You have already completed this task");
 
     let proof = null;
     if (task.proofRequired) {
