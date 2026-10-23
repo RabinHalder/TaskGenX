@@ -15,7 +15,6 @@
       "home.earned": "Earned",
       "home.withdrawn": "Withdrawn",
       "home.referralEarn": "Referral",
-      "home.level": "Level {n} · {name}",
       "home.pendingProofs": "{n} in review",
       "home.pendingWithdraws": "{n} payout in progress",
       "home.support": "Support",
@@ -32,19 +31,10 @@
       "home.ci.tomorrow": "Come back tomorrow to get {amount}",
       "home.ci.ok": "Checked in! You got {amount}",
       "home.ci.okFree": "Checked in! Day {n} streak",
-      "home.lv.title": "Level progress",
-      "home.lv.of": "Level {n} of {total}",
-      "home.lv.tasks": "Approved tasks",
-      "home.lv.refs": "Referrals",
-      "home.lv.next": "Next level: {name}",
-      "home.lv.need": "Reach both targets to level up.",
-      "home.lv.max": "You are at the highest level. Great work!",
-      "home.lv.fee": "Withdraw fee",
-      "home.lv.limit": "Monthly limit",
 
       "dep.title": "Deposit money",
       "dep.amount": "Amount (₹)",
-      "dep.hint": "Minimum {min}, maximum {max}",
+      "dep.hint": "Minimum {min}, maximum {max}. Whole rupees only.",
       "dep.range": "Enter an amount between {min} and {max}",
       "dep.sumAmount": "You pay",
       "dep.sumFee": "Fee ({pct}%)",
@@ -72,7 +62,7 @@
       "wd.sumAmount": "Withdraw amount",
       "wd.sumFee": "Fee ({pct}%)",
       "wd.sumGet": "You receive",
-      "wd.limits": "Daily limit {daily}. Monthly limit for your level: {monthly}.",
+      "wd.note": "Fee {pct}% · {used} of {limit} withdrawals used this month · Daily limit {daily}",
       "wd.approval": "Withdrawals of {amount} or more need admin approval.",
       "wd.submit": "Request withdrawal",
       "wd.off": "Withdrawals are turned off right now.",
@@ -91,7 +81,6 @@
       "home.earned": "আয়",
       "home.withdrawn": "উইথড্র হয়েছে",
       "home.referralEarn": "রেফারেল",
-      "home.level": "লেভেল {n} · {name}",
       "home.pendingProofs": "{n}টি যাচাইয়ে আছে",
       "home.pendingWithdraws": "{n}টি পেআউট চলছে",
       "home.support": "সাপোর্ট",
@@ -108,19 +97,10 @@
       "home.ci.tomorrow": "কাল আবার এসে {amount} নিন",
       "home.ci.ok": "চেক-ইন সফল! আপনি {amount} পেয়েছেন",
       "home.ci.okFree": "চেক-ইন সফল! {n} দিনের স্ট্রিক",
-      "home.lv.title": "লেভেলের অগ্রগতি",
-      "home.lv.of": "{total}টির মধ্যে লেভেল {n}",
-      "home.lv.tasks": "অনুমোদিত টাস্ক",
-      "home.lv.refs": "রেফারেল",
-      "home.lv.next": "পরের লেভেল: {name}",
-      "home.lv.need": "লেভেল বাড়াতে দুটো লক্ষ্যই পূরণ করতে হবে।",
-      "home.lv.max": "আপনি সর্বোচ্চ লেভেলে আছেন। দারুণ কাজ!",
-      "home.lv.fee": "উইথড্র ফি",
-      "home.lv.limit": "মাসিক সীমা",
 
       "dep.title": "টাকা ডিপোজিট করুন",
       "dep.amount": "পরিমাণ (₹)",
-      "dep.hint": "সর্বনিম্ন {min}, সর্বোচ্চ {max}",
+      "dep.hint": "সর্বনিম্ন {min}, সর্বোচ্চ {max}। শুধু পূর্ণ টাকা।",
       "dep.range": "{min} থেকে {max} এর মধ্যে পরিমাণ লিখুন",
       "dep.sumAmount": "আপনি দেবেন",
       "dep.sumFee": "ফি ({pct}%)",
@@ -148,7 +128,7 @@
       "wd.sumAmount": "উইথড্রর পরিমাণ",
       "wd.sumFee": "ফি ({pct}%)",
       "wd.sumGet": "আপনি পাবেন",
-      "wd.limits": "দৈনিক সীমা {daily}। আপনার লেভেলের মাসিক সীমা: {monthly}।",
+      "wd.note": "ফি {pct}% · এই মাসে {limit}টির মধ্যে {used}টি উইথড্র হয়েছে · দৈনিক সীমা {daily}",
       "wd.approval": "{amount} বা তার বেশি উইথড্রে অ্যাডমিনের অনুমোদন লাগে।",
       "wd.submit": "উইথড্র অনুরোধ করুন",
       "wd.off": "এখন উইথড্র বন্ধ আছে।",
@@ -227,15 +207,12 @@
     render() {
       const me = App.me;
       if (!this.root || !me) return;
-      const u = me.user, cfg = me.config, st = me.stats, lv = me.level;
+      const u = me.user, cfg = me.config, st = me.stats;
       const hidden = u.hideBalance;
       const name = u.firstName || u.username || t("common.unknown");
       const mask = (v) => (hidden ? "••••" : money(v));
 
       const chips = [];
-      if (lv.current) {
-        chips.push('<span class="chip-lite">' + icon("award", "sm") + esc(t("home.level", { n: lv.level, name: I18n.levelName(lv.current) })) + "</span>");
-      }
       if (st.pendingProofs > 0) {
         chips.push('<span class="chip-lite">' + icon("clock", "sm") + esc(t("home.pendingProofs", { n: st.pendingProofs })) + "</span>");
       }
@@ -260,7 +237,7 @@
         '<button class="eye-btn" data-act="toggleBalance" aria-label="' + esc(hidden ? t("home.showBalance") : t("home.hideBalance")) + '">' +
         icon(hidden ? "eye-off" : "eye", "sm") + "</button></div>" +
         '<div class="balance-amount" id="home-balance">' + esc(hidden ? UI.HIDDEN_MONEY : money(this.prev)) + "</div>" +
-        '<div class="balance-foot">' + chips.join("") + "</div>" +
+        (chips.length ? '<div class="balance-foot">' + chips.join("") + "</div>" : "") +
         '<div class="balance-actions">' +
         '<button class="btn btn-light" data-act="deposit">' + icon("arrow-down-circle", "sm") + esc(t("home.deposit")) + "</button>" +
         '<button class="btn btn-light" data-act="withdraw">' + icon("arrow-up-circle", "sm") + esc(t("home.withdraw")) + "</button>" +
@@ -272,8 +249,7 @@
         '<div class="mini-stat"><b>' + esc(mask(u.referralEarnings)) + "</b><span>" + esc(t("home.referralEarn")) + "</span></div>" +
         "</div>" +
 
-        (cfg.checkin.enabled ? this.checkinHtml(me) : "") +
-        this.levelHtml(me);
+        (cfg.checkin.enabled ? this.checkinHtml(me) : "");
 
       const bal = this.root.querySelector("#home-balance");
       if (bal) {
@@ -321,39 +297,6 @@
       );
     },
 
-    levelHtml(me) {
-      const lv = me.level;
-      const cur = lv.current;
-      if (!cur) return "";
-      let body;
-      if (lv.next && lv.progress) {
-        const p = lv.progress;
-        const bar = (label, have, need) => {
-          const pct = need > 0 ? Math.min(100, Math.round((have / need) * 100)) : 100;
-          return (
-            '<div class="prog-line"><div class="meta"><span>' + esc(label) + "</span><b>" +
-            UI.num(Math.min(have, need)) + "/" + UI.num(need) + "</b></div>" +
-            '<div class="progress"><span style="width:' + pct + '%"></span></div></div>'
-          );
-        };
-        body =
-          '<div class="card-sub" style="margin-bottom:10px">' + esc(t("home.lv.next", { name: I18n.levelName(lv.next) })) + "</div>" +
-          bar(t("home.lv.tasks"), p.tasks.have, p.tasks.need) +
-          bar(t("home.lv.refs"), p.referrals.have, p.referrals.need) +
-          '<div class="card-sub">' + esc(t("home.lv.need")) + "</div>";
-      } else {
-        body = '<div class="card-sub">' + esc(t("home.lv.max")) + "</div>";
-      }
-      return (
-        '<div class="card"><div class="lvl-head"><div class="lvl-badge">' + icon(lv.level >= 5 ? "crown" : "award", "lg") + "</div>" +
-        '<div><div class="lvl-name">' + esc(I18n.levelName(cur)) + "</div>" +
-        '<div class="card-sub">' + esc(t("home.lv.of", { n: lv.level, total: lv.totalLevels })) + "</div></div></div>" +
-        body +
-        '<div class="perks"><div class="perk">' + esc(t("home.lv.fee")) + "<b>" + esc(cur.withdrawFeePercent) + "%</b></div>" +
-        '<div class="perk">' + esc(t("home.lv.limit")) + "<b>" + esc(money(cur.monthlyWithdrawLimit)) + "</b></div></div></div>"
-      );
-    },
-
     /* ----------------------------- ACTIONS ----------------------------- */
 
     async toggleBalance() {
@@ -393,7 +336,7 @@
         title: t("dep.title"),
         html:
           '<div class="field"><label>' + esc(t("dep.amount")) + "</label>" +
-          '<div class="amount-wrap"><span>₹</span><input class="input" id="dep-amt" type="text" inputmode="decimal" autocomplete="off" placeholder="0" /></div>' +
+          '<div class="amount-wrap"><span>₹</span><input class="input" id="dep-amt" type="text" inputmode="numeric" autocomplete="off" placeholder="0" /></div>' +
           '<div class="card-sub" style="margin-top:6px">' + esc(t("dep.hint", { min: money(cfg.min), max: money(cfg.max) })) + "</div></div>" +
           '<div class="chip-row">' + quick.map((v) => '<button class="chip" data-amt="' + v + '">' + esc(money(v)) + "</button>").join("") + "</div>" +
           '<div id="dep-sum"></div>' +
@@ -410,8 +353,8 @@
           let payUrl = "";
 
           function calc() {
-            input.value = input.value.replace(/[^0-9.]/g, "");
-            const a = parseFloat(input.value);
+            input.value = input.value.replace(/[^0-9]/g, "");
+            const a = parseInt(input.value, 10);
             if (!(a > 0)) {
               sum.innerHTML = "";
               return;
@@ -487,7 +430,7 @@
 
           go.onclick = () =>
             UI.withBusy(go, async () => {
-              const a = parseFloat(input.value);
+              const a = parseInt(input.value, 10);
               if (!(a >= cfg.min && a <= cfg.max)) {
                 throw new Error(t("dep.range", { min: money(cfg.min), max: money(cfg.max) }));
               }
@@ -509,14 +452,17 @@
       const cfg = me.config.withdraw;
       if (!cfg.enabled) return UI.toast(t("wd.off"), "error");
       const methods = [];
-      if (cfg.upiEnabled) methods.push("upi");
-      if (cfg.walletEnabled) methods.push("finzo_wallet");
+      if (cfg.upi.enabled) methods.push("upi");
+      if (cfg.wallet.enabled) methods.push("finzo_wallet");
       if (!methods.length) return UI.toast(t("wd.off"), "error");
 
       const cur = me.level.current;
       const feePct = cur ? cur.withdrawFeePercent : 0;
-      const monthly = cur ? cur.monthlyWithdrawLimit : 0;
+      const monthly = cur ? cur.monthlyWithdrawals : 0;
+      const used = me.stats.withdrawalsThisMonth || 0;
       let method = methods[0];
+      // UPI and FINZO Wallet have separate limits
+      const mc = () => (method === "upi" ? cfg.upi : cfg.wallet);
       const detail = (m) => {
         const d = App.me.user.withdrawDetails;
         return m === "upi" ? d.upi : d.finzoWallet;
@@ -532,11 +478,10 @@
           '<div id="wd-detail"></div>' +
           '<div class="field"><label>' + esc(t("wd.amount")) + "</label>" +
           '<div class="amount-wrap"><span>₹</span><input class="input" id="wd-amt" type="text" inputmode="decimal" autocomplete="off" placeholder="0" /></div>' +
-          '<div class="card-sub" style="margin-top:6px">' + esc(t("wd.hint", { min: money(cfg.min), max: money(cfg.max) })) + "</div></div>" +
+          '<div class="card-sub" style="margin-top:6px" id="wd-hint"></div></div>' +
           '<div class="chip-row"><button class="chip" id="wd-max">' + esc(t("wd.max")) + "</button></div>" +
           '<div id="wd-sum"></div>' +
-          '<div class="note">' + icon("info") + "<div>" + esc(t("wd.limits", { daily: money(cfg.dailyLimit), monthly: money(monthly) })) +
-          (cfg.approvalEnabled ? "<br>" + esc(t("wd.approval", { amount: money(cfg.approvalAbove) })) : "") + "</div></div>" +
+          '<div class="note" id="wd-note"></div>' +
           '<button class="btn btn-primary btn-block" id="wd-go">' + icon("arrow-up-circle", "sm") + esc(t("wd.submit")) + "</button>",
         onClose() {
           App.refreshMe({ silent: true });
@@ -547,8 +492,14 @@
           const box = el.querySelector("#wd-detail");
           const go = el.querySelector("#wd-go");
 
-          function paintDetail() {
+          function paintMethod() {
+            const c = mc();
             el.querySelectorAll("#wd-seg button").forEach((b) => b.classList.toggle("active", b.dataset.m === method));
+            el.querySelector("#wd-hint").textContent = t("wd.hint", { min: money(c.min), max: money(c.max) });
+            el.querySelector("#wd-note").innerHTML =
+              icon("info") + "<div>" +
+              esc(t("wd.note", { pct: feePct, used, limit: monthly, daily: money(c.dailyLimit) })) +
+              (cfg.approvalEnabled ? "<br>" + esc(t("wd.approval", { amount: money(cfg.approvalAbove) })) : "") + "</div>";
             const v = detail(method);
             if (v) {
               box.innerHTML = '<div class="note">' + icon("check-circle") + "<div>" + esc(t("method." + method)) + ": <b>" + esc(v) + "</b></div></div>";
@@ -562,6 +513,7 @@
                 setTimeout(() => Pages.profile && Pages.profile.focusDetails(), 400);
               };
             }
+            calc();
           }
 
           function calc() {
@@ -583,11 +535,11 @@
             b.addEventListener("click", () => {
               method = b.dataset.m;
               UI.haptic("select");
-              paintDetail();
+              paintMethod();
             })
           );
           el.querySelector("#wd-max").onclick = () => {
-            const m = Math.min(App.me.user.balance, cfg.max);
+            const m = Math.min(App.me.user.balance, mc().max);
             input.value = String(Math.floor(m * 100) / 100);
             UI.haptic("select");
             calc();
@@ -596,9 +548,10 @@
           go.onclick = () =>
             UI.withBusy(go, async () => {
               const a = parseFloat(input.value);
+              const c = mc();
               if (!detail(method)) throw new Error(t("wd.noDetail", { method: t("method." + method) }));
-              if (!(a >= cfg.min && a <= cfg.max)) {
-                throw new Error(t("wd.range", { min: money(cfg.min), max: money(cfg.max) }));
+              if (!(a >= c.min && a <= c.max)) {
+                throw new Error(t("wd.range", { min: money(c.min), max: money(c.max) }));
               }
               if (a > App.me.user.balance) throw new Error(t("wd.low"));
               const r = await API.post("/wallet/withdraw", { amount: a, method });
@@ -615,7 +568,7 @@
               }
             });
 
-          paintDetail();
+          paintMethod();
         },
       });
     },
