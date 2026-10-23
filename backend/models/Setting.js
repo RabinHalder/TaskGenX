@@ -6,8 +6,8 @@ const N = (def) => ({ type: Number, default: def });
 const B = (def) => ({ type: Boolean, default: def });
 const limits = (min, max, daily) => ({ enabled: B(true), min: N(min), max: N(max), dailyLimit: N(daily) });
 
-// minTasks / minReferrals = what a user must do to REACH this level.
-// Tasks are counted from the moment the user entered the previous level.
+// Each level has a mission: minTasks and minReferrals are what a user must complete
+// AT THIS LEVEL (both) to move up to the next level. The last level has no mission.
 const levelSchema = new Schema(
   {
     name: String,
@@ -24,13 +24,13 @@ const categorySchema = new Schema({ id: String, en: String, icon: String }, { _i
 const faqSchema = new Schema({ qEn: String, qBn: String, aEn: String, aBn: String }, { _id: false });
 
 const defaultLevels = () => [
-  { name: "Bronze", minTasks: 0, minReferrals: 0, withdrawFeePercent: 10, monthlyWithdrawals: 2 },
-  { name: "Silver", minTasks: 10, minReferrals: 0, withdrawFeePercent: 8, monthlyWithdrawals: 2 },
-  { name: "Gold", minTasks: 15, minReferrals: 0, withdrawFeePercent: 6, monthlyWithdrawals: 3 },
-  { name: "Platinum", minTasks: 25, minReferrals: 0, withdrawFeePercent: 5, monthlyWithdrawals: 4 },
-  { name: "Diamond", minTasks: 40, minReferrals: 0, withdrawFeePercent: 4, monthlyWithdrawals: 5 },
-  { name: "Master", minTasks: 60, minReferrals: 0, withdrawFeePercent: 3, monthlyWithdrawals: 6 },
-  { name: "Grandmaster", minTasks: 100, minReferrals: 0, withdrawFeePercent: 2, monthlyWithdrawals: 8 },
+  { name: "Bronze", minTasks: 5, minReferrals: 0, withdrawFeePercent: 10, monthlyWithdrawals: 2 },
+  { name: "Silver", minTasks: 10, minReferrals: 5, withdrawFeePercent: 8, monthlyWithdrawals: 2 },
+  { name: "Gold", minTasks: 15, minReferrals: 5, withdrawFeePercent: 6, monthlyWithdrawals: 3 },
+  { name: "Platinum", minTasks: 25, minReferrals: 8, withdrawFeePercent: 5, monthlyWithdrawals: 4 },
+  { name: "Diamond", minTasks: 40, minReferrals: 10, withdrawFeePercent: 4, monthlyWithdrawals: 5 },
+  { name: "Master", minTasks: 60, minReferrals: 15, withdrawFeePercent: 3, monthlyWithdrawals: 6 },
+  { name: "Grandmaster", minTasks: 0, minReferrals: 0, withdrawFeePercent: 2, monthlyWithdrawals: 8 },
 ];
 
 const defaultCategories = () => [
@@ -63,8 +63,8 @@ const defaultFaq = () => [
   {
     qEn: "How do levels work?",
     qBn: "লেভেল কীভাবে কাজ করে?",
-    aEn: "Complete the required number of tasks at your current level to move up. Higher levels have lower withdraw fees and more withdrawals per month.",
-    aBn: "এখনকার লেভেলে নির্দিষ্ট সংখ্যক টাস্ক শেষ করলে পরের লেভেলে যাবেন। উঁচু লেভেলে উইথড্র ফি কম এবং মাসে বেশি উইথড্র করা যায়।",
+    aEn: "Every level has a mission, for example 10 tasks and 5 referrals. Complete the whole mission at your level to move up. Higher levels have lower withdraw fees and more withdrawals per month.",
+    aBn: "প্রতিটি লেভেলের একটি মিশন আছে, যেমন ১০টি টাস্ক ও ৫টি রেফারেল। নিজের লেভেলে পুরো মিশন শেষ করলে পরের লেভেলে উঠবেন। উঁচু লেভেলে উইথড্র ফি কম এবং মাসে বেশি উইথড্র করা যায়।",
   },
   {
     qEn: "How does the referral reward work?",
