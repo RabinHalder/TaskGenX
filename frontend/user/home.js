@@ -12,13 +12,11 @@
       "home.showBalance": "Show balance",
       "home.deposit": "Deposit",
       "home.withdraw": "Withdraw",
-      "home.earned": "Earned",
-      "home.withdrawn": "Withdrawn",
-      "home.referralEarn": "Referral",
       "home.pendingProofs": "{n} in review",
       "home.pendingWithdraws": "{n} payout in progress",
       "home.support": "Support",
       "home.live": "LIVE",
+      "home.liveTitle": "Live activity",
       "home.tkDeposit": "{name} deposited {amount}",
       "home.tkWithdraw": "{name} withdrew {amount}",
       "home.ci.title": "Daily check-in",
@@ -78,13 +76,11 @@
       "home.showBalance": "ব্যালেন্স দেখান",
       "home.deposit": "ডিপোজিট",
       "home.withdraw": "উইথড্র",
-      "home.earned": "আয়",
-      "home.withdrawn": "উইথড্র হয়েছে",
-      "home.referralEarn": "রেফারেল",
       "home.pendingProofs": "{n}টি যাচাইয়ে আছে",
       "home.pendingWithdraws": "{n}টি পেআউট চলছে",
       "home.support": "সাপোর্ট",
       "home.live": "লাইভ",
+      "home.liveTitle": "লাইভ কার্যক্রম",
       "home.tkDeposit": "{name} {amount} ডিপোজিট করেছেন",
       "home.tkWithdraw": "{name} {amount} উইথড্র করেছেন",
       "home.ci.title": "দৈনিক চেক-ইন",
@@ -178,9 +174,10 @@
       } catch (e) {
         return;
       }
+      const wrap = this.root && this.root.querySelector("#home-live");
       const el = this.root && this.root.querySelector("#home-ticker");
-      if (el) {
-        el.classList.toggle("hidden", !this.feed.length);
+      if (wrap && el) {
+        wrap.classList.toggle("hidden", !this.feed.length);
         el.innerHTML = this.tickerInner();
       }
     },
@@ -210,7 +207,6 @@
       const u = me.user, cfg = me.config, st = me.stats;
       const hidden = u.hideBalance;
       const name = u.firstName || u.username || t("common.unknown");
-      const mask = (v) => (hidden ? "••••" : money(v));
 
       const chips = [];
       if (st.pendingProofs > 0) {
@@ -230,8 +226,6 @@
           : "") +
         "</div></div>" +
 
-        '<div class="ticker ' + (this.feed.length ? "" : "hidden") + '" id="home-ticker">' + this.tickerInner() + "</div>" +
-
         '<div class="balance-card">' +
         '<div class="balance-top"><div class="balance-label">' + icon("wallet", "sm") + esc(t("home.balance")) + "</div>" +
         '<button class="eye-btn" data-act="toggleBalance" aria-label="' + esc(hidden ? t("home.showBalance") : t("home.hideBalance")) + '">' +
@@ -243,13 +237,12 @@
         '<button class="btn btn-light" data-act="withdraw">' + icon("arrow-up-circle", "sm") + esc(t("home.withdraw")) + "</button>" +
         "</div></div>" +
 
-        '<div class="mini-stats">' +
-        '<div class="mini-stat"><b>' + esc(mask(u.totalEarned)) + "</b><span>" + esc(t("home.earned")) + "</span></div>" +
-        '<div class="mini-stat"><b>' + esc(mask(u.totalWithdrawn)) + "</b><span>" + esc(t("home.withdrawn")) + "</span></div>" +
-        '<div class="mini-stat"><b>' + esc(mask(u.referralEarnings)) + "</b><span>" + esc(t("home.referralEarn")) + "</span></div>" +
-        "</div>" +
+        (cfg.checkin.enabled ? this.checkinHtml(me) : "") +
 
-        (cfg.checkin.enabled ? this.checkinHtml(me) : "");
+        // Live activity sits at the bottom of the page
+        '<div id="home-live" class="' + (this.feed.length ? "" : "hidden") + '">' +
+        '<div class="section-head"><div class="section-title">' + esc(t("home.liveTitle")) + "</div></div>" +
+        '<div class="ticker" id="home-ticker">' + this.tickerInner() + "</div></div>";
 
       const bal = this.root.querySelector("#home-balance");
       if (bal) {
