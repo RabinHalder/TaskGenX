@@ -19,8 +19,10 @@ const userSchema = new Schema(
     // Progress
     level: { type: Number, default: 1 },
     tasksApproved: { type: Number, default: 0 },
+    // Tasks approved since the user entered the current level (restarts on every level-up)
+    levelTasks: { type: Number, default: 0 },
 
-    // Referral (code = Telegram ID, single level)
+    // Referral (single level)
     referredBy: { type: Number, default: null, index: true },
     referralRewarded: { type: Boolean, default: false },
     referralCount: { type: Number, default: 0 },
