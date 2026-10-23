@@ -13,6 +13,7 @@ const transactionSchema = new Schema(
         "deposit",
         "withdraw",
         "withdraw_refund",
+        "referral",
         "referral_l1",
         "referral_l2",
         "checkin",
@@ -24,7 +25,7 @@ const transactionSchema = new Schema(
     amount: { type: Number, required: true }, // signed: + credit, - debit
     balanceAfter: { type: Number, default: 0 },
     note: { type: String, default: "" },
-    ref: { type: String, default: "" }, // related order / submission id
+    ref: { type: String, default: "" },
   },
   { timestamps: true }
 );
