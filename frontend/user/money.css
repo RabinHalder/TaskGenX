@@ -1,0 +1,68 @@
+/* TaskGenX user panel: Deposit and Withdraw screens (loaded by home.js) */
+
+.mn-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.mn-badge { width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; background: var(--accent-grad); box-shadow: 0 10px 22px -10px rgba(76, 91, 255, .85); }
+.mn-title { font-size: 18px; font-weight: 800; letter-spacing: -.3px; }
+.mn-sub { margin-top: 1px; font-size: 12.5px; color: var(--text-soft); }
+
+.mn-bal { display: flex; align-items: center; gap: 8px; padding: 11px 14px; margin-bottom: 16px; border-radius: 14px; background: var(--surface-2); font-size: 12.5px; color: var(--text-soft); }
+.mn-bal b { margin-left: auto; font-size: 14px; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Big amount field */
+.mn-amt { padding: 4px 0; text-align: center; }
+.mn-amt label { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 600; color: var(--text-soft); }
+.mn-amt-row { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 4px 0 6px; border-bottom: 2px solid var(--border); transition: border-color .2s; }
+.mn-amt-row:focus-within { border-color: var(--accent-1); }
+.mn-amt-row span { font-size: 30px; font-weight: 700; color: var(--text-soft); }
+.mn-amt-row input { width: 60%; max-width: 220px; padding: 0; border: 0; outline: none; background: transparent; text-align: center; font-size: 40px; font-weight: 800; letter-spacing: -1px; color: var(--text); font-variant-numeric: tabular-nums; }
+.mn-amt-row input::placeholder { color: var(--text-soft); opacity: .35; }
+.mn-hint { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--text-soft); }
+.mn-max { padding: 4px 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: 11.5px; font-weight: 700; color: var(--accent-1); }
+
+.mn-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px 0; }
+.mn-chips:empty { display: none; }
+
+/* Summary */
+.mn-sum { margin-bottom: 12px; padding: 10px 14px; border-radius: 16px; background: var(--surface-2); }
+.mn-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13px; color: var(--text-soft); }
+.mn-row b { color: var(--text); font-variant-numeric: tabular-nums; text-align: right; word-break: break-all; }
+.mn-row.total { margin-top: 6px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 14px; font-weight: 600; color: var(--text); }
+.mn-row.total b { font-size: 17px; color: var(--accent-1); }
+
+.mn-infos { margin-bottom: 14px; }
+.mn-info { display: flex; align-items: center; gap: 8px; padding: 3px 2px; font-size: 12px; color: var(--text-soft); }
+.mn-info svg { color: var(--accent-1); }
+.mn-warn { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 14px; padding: 11px 13px; border-radius: 14px; background: rgba(240, 68, 56, .1); color: var(--danger); font-size: 12.5px; line-height: 1.45; }
+.mn-warn svg { margin-top: 1px; }
+.mn-appr { margin-bottom: 14px; }
+.mn-secure { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 12px; font-size: 11.5px; color: var(--text-soft); }
+
+/* Withdraw method cards */
+.mn-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.mn-methods.one { grid-template-columns: 1fr; }
+.mn-method { position: relative; display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; border: 1.5px solid var(--border); background: var(--surface); color: inherit; text-align: left; transition: border-color .2s, background .2s; }
+.mn-method.active { border-color: var(--accent-1); background: var(--surface-2); }
+.mn-m-ico { width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--surface-2); color: var(--accent-1); }
+.mn-method.active .mn-m-ico { background: var(--surface); }
+.mn-m-txt { min-width: 0; }
+.mn-m-txt b { display: block; font-size: 13px; }
+.mn-m-txt small { display: block; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-soft); }
+.mn-m-check { position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; border-radius: 50%; display: none; align-items: center; justify-content: center; background: var(--accent-1); color: #fff; }
+.mn-m-check svg { width: 11px; height: 11px; stroke-width: 3; }
+.mn-method.active .mn-m-check { display: flex; }
+
+/* Result screens */
+.mn-result { padding: 8px 4px 4px; text-align: center; }
+.mn-r-ico { width: 76px; height: 76px; margin: 6px auto 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; animation: mnpop .45s cubic-bezier(.2, 1.4, .4, 1); }
+.mn-r-ico.ok { background: var(--success); box-shadow: 0 14px 30px -12px rgba(18, 183, 106, .8); }
+.mn-r-ico.wait { background: var(--warning); box-shadow: 0 14px 30px -12px rgba(247, 144, 9, .8); }
+.mn-r-ico.bad { background: var(--danger); box-shadow: 0 14px 30px -12px rgba(240, 68, 56, .8); }
+@keyframes mnpop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.mn-r-title { font-size: 20px; font-weight: 800; letter-spacing: -.4px; }
+.mn-r-amt { margin: 6px 0 2px; font-size: 30px; font-weight: 800; letter-spacing: -.8px; font-variant-numeric: tabular-nums; }
+.mn-r-text { margin: 6px 0 16px; font-size: 13px; line-height: 1.5; color: var(--text-soft); }
+.mn-ring { position: relative; width: 84px; height: 84px; margin: 6px auto 16px; }
+.mn-ring .ring { position: absolute; inset: 0; border-radius: 50%; border: 4px solid var(--surface-2); border-top-color: var(--accent-1); animation: tgx-spin .9s linear infinite; }
+.mn-ring .mn-ring-ico { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--accent-1); }
+.mn-rows { text-align: left; }
+.mn-btns { display: grid; gap: 10px; }
