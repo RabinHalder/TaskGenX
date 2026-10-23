@@ -15,10 +15,10 @@
       "pf.statWithdrawn": "Withdrawn",
       "pf.lv.pill": "{name} · Level {n}",
       "pf.lv.of": "Level {n} of {total}",
-      "pf.lv.next": "Complete {n} more tasks to reach {name}",
-      "pf.lv.nextRefs": "Invite more friends to reach {name}",
-      "pf.lv.tasks": "Tasks at this level",
-      "pf.lv.refs": "Friends invited",
+      "pf.lv.mission": "Mission to reach {name}",
+      "pf.lv.tasks": "Tasks completed",
+      "pf.lv.refs": "Referrals completed",
+      "pf.lv.hint": "Complete everything above to level up.",
       "pf.lv.max": "You have reached the top level.",
       "pf.lv.fee": "Withdraw fee",
       "pf.lv.wd": "Withdrawals this month",
@@ -27,7 +27,7 @@
       "pf.lv.cRefs": "Referrals",
       "pf.lv.cFee": "Fee",
       "pf.lv.cWd": "Withdrawals / month",
-      "pf.lv.note": "Tasks: how many tasks you complete at the previous level to reach that level. Referrals: total friends invited (– means not needed).",
+      "pf.lv.note": "Tasks and Referrals: the mission you complete at that level to move up (both are needed). – means none.",
       "pf.detailsTitle": "Withdraw details",
       "pf.detailsSub": "Saved details are used when you withdraw.",
       "pf.upi": "UPI ID",
@@ -82,10 +82,10 @@
       "pf.statWithdrawn": "উইথড্র",
       "pf.lv.pill": "{name} · লেভেল {n}",
       "pf.lv.of": "{total}টির মধ্যে লেভেল {n}",
-      "pf.lv.next": "{name}-এ পৌঁছাতে আরও {n}টি টাস্ক শেষ করুন",
-      "pf.lv.nextRefs": "{name}-এ পৌঁছাতে আরও বন্ধুকে আমন্ত্রণ জানান",
-      "pf.lv.tasks": "এই লেভেলের টাস্ক",
-      "pf.lv.refs": "আমন্ত্রিত বন্ধু",
+      "pf.lv.mission": "{name}-এ পৌঁছানোর মিশন",
+      "pf.lv.tasks": "সম্পন্ন টাস্ক",
+      "pf.lv.refs": "সম্পন্ন রেফারেল",
+      "pf.lv.hint": "লেভেল বাড়াতে ওপরের সবকিছু শেষ করুন।",
       "pf.lv.max": "আপনি সর্বোচ্চ লেভেলে পৌঁছে গেছেন।",
       "pf.lv.fee": "উইথড্র ফি",
       "pf.lv.wd": "এই মাসের উইথড্র",
@@ -94,7 +94,7 @@
       "pf.lv.cRefs": "রেফারেল",
       "pf.lv.cFee": "ফি",
       "pf.lv.cWd": "উইথড্র / মাস",
-      "pf.lv.note": "টাস্ক: ওই লেভেলে পৌঁছাতে আগের লেভেলে কতটি টাস্ক শেষ করতে হবে। রেফারেল: মোট কতজন বন্ধুকে আমন্ত্রণ জানাতে হবে (– মানে লাগবে না)।",
+      "pf.lv.note": "টাস্ক ও রেফারেল: ওই লেভেলে থেকে পরের লেভেলে ওঠার মিশন (দুটোই লাগবে)। – মানে লাগবে না।",
       "pf.detailsTitle": "উইথড্র তথ্য",
       "pf.detailsSub": "উইথড্র করার সময় সেভ করা তথ্য ব্যবহার হবে।",
       "pf.upi": "UPI আইডি",
@@ -268,6 +268,7 @@
       const levels = me.config.levels || [];
       const used = me.stats.withdrawalsThisMonth || 0;
 
+      // Progress of the mission at the current level (tasks AND referrals)
       let next;
       if (lv.next && lv.progress) {
         const p = lv.progress;
@@ -279,25 +280,25 @@
             '<div class="progress"><span style="width:' + pct + '%"></span></div></div>'
           );
         };
-        const left = Math.max(0, p.tasks.need - p.tasks.have);
         next =
-          '<div class="card-sub" style="margin-bottom:10px">' +
-          esc(left > 0 ? t("pf.lv.next", { n: left, name: lv.next.name }) : t("pf.lv.nextRefs", { name: lv.next.name })) + "</div>" +
-          bar(t("pf.lv.tasks"), p.tasks.have, p.tasks.need) +
-          (p.referrals.need > 0 ? bar(t("pf.lv.refs"), p.referrals.have, p.referrals.need) : "");
+          '<div class="card-sub" style="margin-bottom:10px">' + esc(t("pf.lv.mission", { name: lv.next.name })) + "</div>" +
+          (p.tasks.need > 0 ? bar(t("pf.lv.tasks"), p.tasks.have, p.tasks.need) : "") +
+          (p.referrals.need > 0 ? bar(t("pf.lv.refs"), p.referrals.have, p.referrals.need) : "") +
+          '<div class="card-sub">' + esc(t("pf.lv.hint")) + "</div>";
       } else {
         next = '<div class="card-sub">' + esc(t("pf.lv.max")) + "</div>";
       }
 
-      // One line per level: tasks, referrals, withdraw fee, withdrawals per month
+      // One line per level: its mission (tasks, referrals), withdraw fee, withdrawals per month
       const dash = (v) => (v > 0 ? UI.num(v) : "–");
       const rows = levels
         .map((L, i) => {
           const n = i + 1;
+          const isLast = i === levels.length - 1;
           const state = n < lv.level ? "done" : n === lv.level ? "cur" : "todo";
           return (
             '<div class="ladder-row ' + state + '"><div class="nm"><i class="dot"></i><span>' + esc(L.name) + "</span></div>" +
-            '<div class="c">' + (i === 0 ? "–" : dash(L.minTasks)) + '</div><div class="c">' + (i === 0 ? "–" : dash(L.minReferrals)) + "</div>" +
+            '<div class="c">' + (isLast ? "–" : dash(L.minTasks)) + '</div><div class="c">' + (isLast ? "–" : dash(L.minReferrals)) + "</div>" +
             '<div class="c">' + esc(L.withdrawFeePercent) + '%</div><div class="c">' + esc(L.monthlyWithdrawals) + "</div></div>"
           );
         })
