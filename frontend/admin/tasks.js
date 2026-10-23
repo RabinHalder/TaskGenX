@@ -19,15 +19,18 @@
       "ad.t.filled": "{a}/{b} used",
       "ad.t.filledU": "{a} used",
       "ad.t.pendingN": "{n} to review",
+      "ad.t.lvAll": "All levels",
       "ad.t.fTitleEn": "Title (English)",
       "ad.t.fTitleBn": "Title (Bangla)",
       "ad.t.fDescEn": "Description (English)",
       "ad.t.fDescBn": "Description (Bangla)",
       "ad.t.fCat": "Category",
+      "ad.t.fLevel": "Level",
+      "ad.t.fLevelHint": "Only users at this level can see and do this task. \"All levels\" shows it to everyone.",
+      "ad.t.onceNote": "Every task can be completed only once per user. A submitted task leaves the user's list and comes back only if you reject it.",
       "ad.t.fReward": "Reward (₹)",
       "ad.t.fLink": "Task link (optional)",
       "ad.t.fProof": "Screenshot proof required",
-      "ad.t.fLimit": "Limit per user",
       "ad.t.fTotal": "Total slots (0 = unlimited)",
       "ad.t.fExpiry": "Expiry (optional)",
       "ad.t.fOrder": "Sort order (higher shows first)",
@@ -84,15 +87,18 @@
       "ad.t.filled": "{a}/{b} ব্যবহৃত",
       "ad.t.filledU": "{a} ব্যবহৃত",
       "ad.t.pendingN": "{n}টি যাচাই বাকি",
+      "ad.t.lvAll": "সব লেভেল",
       "ad.t.fTitleEn": "শিরোনাম (ইংরেজি)",
       "ad.t.fTitleBn": "শিরোনাম (বাংলা)",
       "ad.t.fDescEn": "বিবরণ (ইংরেজি)",
       "ad.t.fDescBn": "বিবরণ (বাংলা)",
       "ad.t.fCat": "ক্যাটাগরি",
+      "ad.t.fLevel": "লেভেল",
+      "ad.t.fLevelHint": "শুধু এই লেভেলের ইউজাররা টাস্কটি দেখতে ও করতে পারবে। “সব লেভেল” বাছলে সবাই দেখবে।",
+      "ad.t.onceNote": "প্রতিটি টাস্ক একজন ইউজার একবারই করতে পারবে। জমা দেওয়া টাস্ক ইউজারের তালিকা থেকে সরে যায় এবং আপনি রিজেক্ট করলেই আবার ফিরে আসে।",
       "ad.t.fReward": "পুরস্কার (₹)",
       "ad.t.fLink": "টাস্ক লিংক (ঐচ্ছিক)",
       "ad.t.fProof": "স্ক্রিনশট প্রমাণ আবশ্যক",
-      "ad.t.fLimit": "প্রতি ইউজারের সীমা",
       "ad.t.fTotal": "মোট সুযোগ (০ = সীমাহীন)",
       "ad.t.fExpiry": "মেয়াদ (ঐচ্ছিক)",
       "ad.t.fOrder": "ক্রম (বেশি হলে আগে দেখাবে)",
@@ -165,6 +171,13 @@
     if (Number.isNaN(d.getTime())) return "";
     const p = (n) => String(n).padStart(2, "0");
     return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+
+  // Name of the level a task is for (0 = all levels)
+  function levelLabel(n) {
+    if (!n) return t("ad.t.lvAll");
+    const L = (App.me.config.levels || [])[n - 1];
+    return L ? L.name : "Level " + n;
   }
 
   // Reason picker: resolves to the text, or null if cancelled
@@ -343,6 +356,7 @@
             if (expired) badges.push('<span class="badge bad">' + esc(t("task.expired")) + "</span>");
             if (full) badges.push('<span class="badge bad">' + esc(t("task.full")) + "</span>");
             const meta = [
+              "<span>" + icon("layers") + esc(levelLabel(tk.level)) + "</span>",
               "<span>" + icon("users") + esc(tk.totalLimit > 0 ? t("ad.t.filled", { a: tk.filled, b: tk.totalLimit }) : t("ad.t.filledU", { a: tk.filled })) + "</span>",
             ];
             if (tk.pending > 0) meta.push("<span>" + icon("clock") + esc(t("ad.t.pendingN", { n: tk.pending })) + "</span>");
@@ -530,22 +544,24 @@
 
     openForm(tk) {
       const cats = App.me.config.categories || [];
+      const levels = App.me.config.levels || [];
       const isEdit = !!tk;
       const v = tk || {
         title: { en: "", bn: "" },
         description: { en: "", bn: "" },
         category: cats[0] ? cats[0].id : "other",
+        level: 0,
         reward: "",
         link: "",
         proofRequired: true,
-        limitPerUser: 1,
         totalLimit: 0,
         expiresAt: null,
         active: true,
         sortOrder: 0,
       };
 
-      const f = (label, html) => '<div class="field"><label>' + esc(label) + "</label>" + html + "</div>";
+      const f = (label, html, hint) =>
+        '<div class="field"><label>' + esc(label) + "</label>" + html + (hint ? '<div class="field-hint">' + esc(hint) + "</div>" : "") + "</div>";
       const inp = (id, val, extra) => '<input class="input" id="' + id + '" value="' + esc(val) + '" ' + (extra || "") + " />";
       const area = (id, val) => '<textarea class="input" id="' + id + '" maxlength="2000">' + esc(val) + "</textarea>";
       const sw = (id, label, on) =>
@@ -553,26 +569,31 @@
         '<button class="switch ' + (on ? "on" : "") + '" id="' + id + '" role="switch" aria-checked="' + !!on + '"></button></div>';
 
       const catList = cats.slice();
-      if (!catList.some((c) => c.id === v.category)) catList.push({ id: v.category, en: v.category, bn: v.category });
-      const select =
+      if (!catList.some((c) => c.id === v.category)) catList.push({ id: v.category, en: v.category });
+      const catSelect =
         '<select class="input" id="tf-cat">' +
-        catList.map((c) => '<option value="' + esc(c.id) + '"' + (c.id === v.category ? " selected" : "") + ">" + esc(I18n.pick(c.en, c.bn)) + "</option>").join("") +
+        catList.map((c) => '<option value="' + esc(c.id) + '"' + (c.id === v.category ? " selected" : "") + ">" + esc(c.en) + "</option>").join("") +
+        "</select>";
+
+      const lvl = v.level || 0;
+      const levelSelect =
+        '<select class="input" id="tf-level"><option value="0"' + (lvl === 0 ? " selected" : "") + ">" + esc(t("ad.t.lvAll")) + "</option>" +
+        levels.map((L, i) => '<option value="' + (i + 1) + '"' + (lvl === i + 1 ? " selected" : "") + ">" + esc(L.name) + "</option>").join("") +
         "</select>";
 
       UI.sheet({
         title: isEdit ? t("ad.t.edit") : t("ad.t.new"),
         html:
+          '<div class="note">' + icon("info") + "<div>" + esc(t("ad.t.onceNote")) + "</div></div>" +
           f(t("ad.t.fTitleEn"), inp("tf-ten", v.title.en, 'maxlength="120"')) +
           f(t("ad.t.fTitleBn"), inp("tf-tbn", v.title.bn, 'maxlength="120"')) +
           f(t("ad.t.fDescEn"), area("tf-den", v.description.en)) +
           f(t("ad.t.fDescBn"), area("tf-dbn", v.description.bn)) +
-          f(t("ad.t.fCat"), select) +
+          f(t("ad.t.fCat"), catSelect) +
+          f(t("ad.t.fLevel"), levelSelect, t("ad.t.fLevelHint")) +
           f(t("ad.t.fReward"), inp("tf-reward", v.reward, 'inputmode="decimal" autocomplete="off"')) +
           f(t("ad.t.fLink"), inp("tf-link", v.link, 'placeholder="https://" autocapitalize="off" autocomplete="off"')) +
-          '<div class="two">' +
-          f(t("ad.t.fLimit"), inp("tf-limit", v.limitPerUser, 'inputmode="numeric"')) +
           f(t("ad.t.fTotal"), inp("tf-total", v.totalLimit, 'inputmode="numeric"')) +
-          "</div>" +
           f(t("ad.t.fExpiry"), inp("tf-exp", toLocalInput(v.expiresAt), 'type="datetime-local"')) +
           f(t("ad.t.fOrder"), inp("tf-order", v.sortOrder, 'inputmode="numeric"')) +
           sw("tf-proof", t("ad.t.fProof"), v.proofRequired) +
@@ -601,10 +622,10 @@
                 title: { en: val("tf-ten"), bn: val("tf-tbn") },
                 description: { en: val("tf-den"), bn: val("tf-dbn") },
                 category: el.querySelector("#tf-cat").value,
+                level: el.querySelector("#tf-level").value,
                 reward: val("tf-reward"),
                 link: val("tf-link"),
                 proofRequired: on("tf-proof"),
-                limitPerUser: val("tf-limit"),
                 totalLimit: val("tf-total"),
                 expiresAt: exp ? new Date(exp).toISOString() : "",
                 active: on("tf-active"),
