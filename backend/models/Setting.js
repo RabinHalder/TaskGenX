@@ -6,6 +6,8 @@ const N = (def) => ({ type: Number, default: def });
 const B = (def) => ({ type: Boolean, default: def });
 const limits = (min, max, daily) => ({ enabled: B(true), min: N(min), max: N(max), dailyLimit: N(daily) });
 
+// minTasks / minReferrals = what a user must do to REACH this level.
+// Tasks are counted from the moment the user entered the previous level.
 const levelSchema = new Schema(
   {
     name: String,
@@ -23,12 +25,12 @@ const faqSchema = new Schema({ qEn: String, qBn: String, aEn: String, aBn: Strin
 
 const defaultLevels = () => [
   { name: "Bronze", minTasks: 0, minReferrals: 0, withdrawFeePercent: 10, monthlyWithdrawals: 2 },
-  { name: "Silver", minTasks: 10, minReferrals: 2, withdrawFeePercent: 8, monthlyWithdrawals: 2 },
-  { name: "Gold", minTasks: 30, minReferrals: 5, withdrawFeePercent: 6, monthlyWithdrawals: 3 },
-  { name: "Platinum", minTasks: 80, minReferrals: 10, withdrawFeePercent: 5, monthlyWithdrawals: 4 },
-  { name: "Diamond", minTasks: 150, minReferrals: 25, withdrawFeePercent: 4, monthlyWithdrawals: 5 },
-  { name: "Master", minTasks: 300, minReferrals: 50, withdrawFeePercent: 3, monthlyWithdrawals: 6 },
-  { name: "Grandmaster", minTasks: 600, minReferrals: 100, withdrawFeePercent: 2, monthlyWithdrawals: 8 },
+  { name: "Silver", minTasks: 10, minReferrals: 0, withdrawFeePercent: 8, monthlyWithdrawals: 2 },
+  { name: "Gold", minTasks: 15, minReferrals: 0, withdrawFeePercent: 6, monthlyWithdrawals: 3 },
+  { name: "Platinum", minTasks: 25, minReferrals: 0, withdrawFeePercent: 5, monthlyWithdrawals: 4 },
+  { name: "Diamond", minTasks: 40, minReferrals: 0, withdrawFeePercent: 4, monthlyWithdrawals: 5 },
+  { name: "Master", minTasks: 60, minReferrals: 0, withdrawFeePercent: 3, monthlyWithdrawals: 6 },
+  { name: "Grandmaster", minTasks: 100, minReferrals: 0, withdrawFeePercent: 2, monthlyWithdrawals: 8 },
 ];
 
 const defaultCategories = () => [
@@ -57,6 +59,12 @@ const defaultFaq = () => [
     qBn: "আমি কীভাবে টাকা তুলব?",
     aEn: "Save your UPI or FINZO Wallet details in Profile, then tap Withdraw on the Home tab.",
     aBn: "Profile-এ আপনার UPI বা FINZO Wallet তথ্য সেভ করুন, তারপর Home ট্যাবে Withdraw চাপুন।",
+  },
+  {
+    qEn: "How do levels work?",
+    qBn: "লেভেল কীভাবে কাজ করে?",
+    aEn: "Complete the required number of tasks at your current level to move up. Higher levels have lower withdraw fees and more withdrawals per month.",
+    aBn: "এখনকার লেভেলে নির্দিষ্ট সংখ্যক টাস্ক শেষ করলে পরের লেভেলে যাবেন। উঁচু লেভেলে উইথড্র ফি কম এবং মাসে বেশি উইথড্র করা যায়।",
   },
   {
     qEn: "How does the referral reward work?",
