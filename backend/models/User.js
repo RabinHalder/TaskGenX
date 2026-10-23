@@ -20,11 +20,10 @@ const userSchema = new Schema(
     level: { type: Number, default: 1 },
     tasksApproved: { type: Number, default: 0 },
 
-    // Referral (code = Telegram ID)
+    // Referral (code = Telegram ID, single level)
     referredBy: { type: Number, default: null, index: true },
-    referredBy2: { type: Number, default: null, index: true },
+    referralRewarded: { type: Boolean, default: false },
     referralCount: { type: Number, default: 0 },
-    referralCount2: { type: Number, default: 0 },
 
     // Daily check-in
     checkin: {
