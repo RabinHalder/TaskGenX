@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const User = require("../models/User");
 const Transaction = require("../models/Transaction");
 const { getSettings } = require("../services/settings");
+const wallet = require("../services/wallet");
 const { round2 } = require("../utils/helpers");
 
 function envAdminIds() {
@@ -34,15 +35,9 @@ function verifyInitData(initData) {
     .join("\n");
 
   const secret = crypto.createHmac("sha256", "WebAppData").update(token).digest();
-  const calculated = crypto
-    .createHmac("sha256", secret)
-    .update(dataCheckString)
-    .digest();
+  const calculated = crypto.createHmac("sha256", secret).update(dataCheckString).digest();
   const received = Buffer.from(hash, "hex");
-  if (
-    received.length !== calculated.length ||
-    !crypto.timingSafeEqual(received, calculated)
-  ) {
+  if (received.length !== calculated.length || !crypto.timingSafeEqual(received, calculated)) {
     return null;
   }
 
@@ -70,14 +65,11 @@ async function createUser(tg, startParam) {
     photoUrl: tg.photo_url || "",
   };
 
-  // Referral: start param = referrer's Telegram ID
+  // Referral: start param = referrer's Telegram ID (single level)
   const refId = Number(startParam);
   if (Number.isInteger(refId) && refId > 0 && refId !== tg.id) {
     const referrer = await User.findOne({ tgId: refId });
-    if (referrer && !referrer.isBanned) {
-      doc.referredBy = referrer.tgId;
-      if (referrer.referredBy) doc.referredBy2 = referrer.referredBy;
-    }
+    if (referrer && !referrer.isBanned) doc.referredBy = referrer.tgId;
   }
 
   let user;
@@ -91,19 +83,13 @@ async function createUser(tg, startParam) {
   if (doc.referredBy) {
     await User.updateOne({ tgId: doc.referredBy }, { $inc: { referralCount: 1 } });
   }
-  if (doc.referredBy2) {
-    await User.updateOne({ tgId: doc.referredBy2 }, { $inc: { referralCount2: 1 } });
-  }
+
+  const settings = await getSettings();
 
   // Welcome bonus (amount comes from Settings)
-  const settings = await getSettings();
   const welcome = round2(settings.bonus && settings.bonus.welcome);
   if (welcome > 0) {
-    user = await User.findOneAndUpdate(
-      { _id: user._id },
-      { $inc: { balance: welcome } },
-      { new: true }
-    );
+    user = await User.findOneAndUpdate({ _id: user._id }, { $inc: { balance: welcome } }, { new: true });
     await Transaction.create({
       user: user._id,
       tgId: user.tgId,
@@ -114,6 +100,15 @@ async function createUser(tg, startParam) {
     });
   }
 
+  // Referral reward when "pay on join" is selected in Settings
+  if (doc.referredBy) {
+    try {
+      await wallet.rewardReferral(user, "join", settings);
+    } catch (e) {
+      console.error("Referral reward failed:", e.message);
+    }
+  }
+
   return user;
 }
 
@@ -121,9 +116,7 @@ async function authenticate(req, res, next) {
   try {
     const data = verifyInitData(req.get("x-telegram-init-data"));
     if (!data) {
-      return res
-        .status(401)
-        .json({ error: "unauthorized", message: "Invalid Telegram session" });
+      return res.status(401).json({ error: "unauthorized", message: "Invalid Telegram session" });
     }
 
     const tg = data.user;
@@ -151,18 +144,13 @@ async function authenticate(req, res, next) {
     }
 
     if (user.isBanned) {
-      return res.status(403).json({
-        error: "banned",
-        message: user.banReason || "Your account is banned",
-      });
+      return res.status(403).json({ error: "banned", message: user.banReason || "Your account is banned" });
     }
 
     const admin = await isAdmin(user.tgId);
     const settings = await getSettings();
     if (settings.app.maintenance && !admin) {
-      return res
-        .status(503)
-        .json({ error: "maintenance", message: settings.app.maintenanceMessage });
+      return res.status(503).json({ error: "maintenance", message: settings.app.maintenanceMessage });
     }
 
     req.user = user;
