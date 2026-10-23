@@ -16,7 +16,11 @@ const taskSchema = new Schema(
     link: { type: String, default: "" },
     proofRequired: { type: Boolean, default: true },
 
-    limitPerUser: { type: Number, default: 1 }, // how many times one user can do it
+    // Which level can see and do this task (0 = all levels, 1 = Bronze, 2 = Silver ...)
+    level: { type: Number, default: 0, index: true },
+
+    // A task can be done once per user, so this is always 1
+    limitPerUser: { type: Number, default: 1 },
     totalLimit: { type: Number, default: 0 }, // 0 = unlimited
     filled: { type: Number, default: 0 }, // pending + approved submissions
     expiresAt: { type: Date, default: null },
