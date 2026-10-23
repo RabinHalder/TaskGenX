@@ -16,8 +16,17 @@
       "ad.nav.settings": "Settings",
 
       "ad.d.title": "Dashboard",
-      "ad.d.sub": "A live summary of your app.",
-      "ad.d.pending": "Needs your attention",
+      "ad.d.updated": "Updated {time}",
+      "ad.d.qaProofs": "Review proofs",
+      "ad.d.qaPayouts": "Approve payouts",
+      "ad.d.qaNew": "New task",
+      "ad.d.qaCast": "Broadcast",
+      "ad.d.hero": "Total deposited",
+      "ad.d.heroSub": "{n} successful payments",
+      "ad.d.hWithdrawn": "Withdrawn",
+      "ad.d.hFees": "Fee earnings",
+      "ad.d.hBalances": "User balances",
+      "ad.d.pending": "Needs attention",
       "ad.d.week": "Last 7 days",
       "ad.d.mMoney": "Money",
       "ad.d.mUsers": "New users",
@@ -27,15 +36,8 @@
       "ad.d.lUsers": "New users",
       "ad.d.lTasks": "Approved tasks",
       "ad.k.users": "Total users",
-      "ad.k.newToday": "{n} new today",
+      "ad.k.newToday": "+{n} today",
       "ad.k.active": "Active in 24h",
-      "ad.k.deposited": "Total deposited",
-      "ad.k.depCount": "{n} payments",
-      "ad.k.withdrawn": "Total withdrawn",
-      "ad.k.wdCount": "{n} payouts",
-      "ad.k.fees": "Fee earnings",
-      "ad.k.balances": "User balances",
-      "ad.k.balancesSub": "Money owed to users",
       "ad.k.tasks": "Active tasks",
       "ad.k.banned": "Banned users",
       "ad.p.proofs": "Proofs to review",
@@ -55,7 +57,16 @@
       "ad.nav.settings": "সেটিংস",
 
       "ad.d.title": "ড্যাশবোর্ড",
-      "ad.d.sub": "আপনার অ্যাপের লাইভ সারসংক্ষেপ।",
+      "ad.d.updated": "আপডেট {time}",
+      "ad.d.qaProofs": "প্রুফ যাচাই",
+      "ad.d.qaPayouts": "পেআউট অনুমোদন",
+      "ad.d.qaNew": "নতুন টাস্ক",
+      "ad.d.qaCast": "ব্রডকাস্ট",
+      "ad.d.hero": "মোট ডিপোজিট",
+      "ad.d.heroSub": "{n}টি সফল পেমেন্ট",
+      "ad.d.hWithdrawn": "উইথড্র",
+      "ad.d.hFees": "ফি থেকে আয়",
+      "ad.d.hBalances": "ইউজারদের ব্যালেন্স",
       "ad.d.pending": "আপনার নজর দরকার",
       "ad.d.week": "গত ৭ দিন",
       "ad.d.mMoney": "টাকা",
@@ -66,18 +77,11 @@
       "ad.d.lUsers": "নতুন ইউজার",
       "ad.d.lTasks": "অনুমোদিত টাস্ক",
       "ad.k.users": "মোট ইউজার",
-      "ad.k.newToday": "আজ নতুন {n} জন",
+      "ad.k.newToday": "আজ +{n}",
       "ad.k.active": "২৪ ঘণ্টায় সক্রিয়",
-      "ad.k.deposited": "মোট ডিপোজিট",
-      "ad.k.depCount": "{n}টি পেমেন্ট",
-      "ad.k.withdrawn": "মোট উইথড্র",
-      "ad.k.wdCount": "{n}টি পেআউট",
-      "ad.k.fees": "ফি থেকে আয়",
-      "ad.k.balances": "ইউজারদের ব্যালেন্স",
-      "ad.k.balancesSub": "ইউজারদের পাওনা টাকা",
       "ad.k.tasks": "সক্রিয় টাস্ক",
       "ad.k.banned": "ব্যান করা ইউজার",
-      "ad.p.proofs": "যাচাইয়ের অপেক্ষায় প্রমাণ",
+      "ad.p.proofs": "যাচাইয়ের অপেক্ষায় প্রুফ",
       "ad.p.approval": "অনুমোদনের অপেক্ষায় উইথড্র",
       "ad.p.processing": "চলমান পেআউট",
       "ad.p.deposits": "খোলা ডিপোজিট",
@@ -112,10 +116,14 @@
 
   /* ----------------------------- SHELL ----------------------------- */
 
+  // The profile photo returns to the user panel (like it opens the admin panel from there)
   function headerHtml() {
+    const u = (window.App && App.me && App.me.user) || {};
+    const name = u.firstName || u.username || "Admin";
     return (
       '<div class="topbar"><div class="user-chip">' +
-      '<button class="icon-btn" data-ad="back" aria-label="' + esc(t("ad.back")) + '">' + icon("arrow-left") + "</button>" +
+      '<button class="av-wrap admin" data-ad="back" aria-label="' + esc(t("ad.back")) + '" title="' + esc(t("ad.back")) + '">' +
+      UI.avatar({ name, photoUrl: u.photoUrl }, "tap") + "</button>" +
       '<div><div class="hello">' + esc(t("ad.mode")) + '</div><div class="uname">' + esc(t("ad.title")) + "</div></div></div>" +
       '<span class="ad-badge">' + icon("shield", "sm") + "Admin</span></div>"
     );
@@ -157,6 +165,8 @@
     A.loading = (async () => {
       try {
         await Promise.all(MODULES.map((src) => UI.loadScript(src)));
+        // Wording tweaks must load after settings.js
+        await UI.loadScript("/admin/labels.js");
       } catch (e) {
         showLoadError();
         return false;
@@ -203,6 +213,7 @@
       A.root = root;
       A.nav = nav;
       if (!A.shell) buildShell();
+      else $r("#ad-head").innerHTML = headerHtml();
       const ok = await ensureReady();
       if (!ok) return;
       const opts = A.pendingOpts;
@@ -227,29 +238,58 @@
 
   /* ----------------------------- DASHBOARD ----------------------------- */
 
+  function niceMax(v) {
+    if (!(v > 0)) return 1;
+    const p = Math.pow(10, Math.floor(Math.log10(v)));
+    const f = v / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+  }
+
+  function dayLabel(d) {
+    return new Date(d + "T12:00:00").toLocaleDateString(I18n.lang() === "bn" ? "bn-BD" : "en-IN", { weekday: "short" });
+  }
+
   function chartSvg(days, series) {
-    const W = 340, H = 180, pl = 6, pr = 6, pt = 18, pb = 24;
-    const max = Math.max(1, ...series.reduce((a, s) => a.concat(s.values), []));
+    const W = 340, H = 200, pl = 40, pr = 8, pt = 16, pb = 28;
+    const max = niceMax(Math.max(0, ...series.reduce((a, s) => a.concat(s.values), [])));
     const n = days.length;
     const gw = (W - pl - pr) / n;
-    const bw = Math.min(24, (gw - 10) / series.length);
-    const soft = "font-size:9px;fill:var(--text-soft)";
-    let out = '<svg viewBox="0 0 ' + W + " " + H + '" role="img">';
-    out += '<line x1="' + pl + '" y1="' + (H - pb) + '" x2="' + (W - pr) + '" y2="' + (H - pb) + '" style="stroke:var(--border);stroke-width:1"/>';
-    out += '<text x="' + pl + '" y="10" style="' + soft + '">' + esc(compact(max)) + "</text>";
+    const bw = Math.min(22, (gw - 8) / series.length);
+    const y = (v) => H - pb - (v / max) * (H - pt - pb);
+    const soft = "font-size:9.5px;fill:var(--text-soft)";
+
+    let out = '<svg viewBox="0 0 ' + W + " " + H + '" role="img"><defs>';
+    series.forEach((s, i) => {
+      out +=
+        '<linearGradient id="adbar' + i + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:' + s.color + '"/>' +
+        '<stop offset="1" style="stop-color:' + s.color + ';stop-opacity:.55"/></linearGradient>';
+    });
+    out += "</defs>";
+
+    [0, 0.5, 1].forEach((f) => {
+      const yy = y(max * f).toFixed(1);
+      out += '<line x1="' + pl + '" y1="' + yy + '" x2="' + (W - pr) + '" y2="' + yy + '" style="stroke:var(--border);stroke-width:1' + (f === 0 ? "" : ";stroke-dasharray:3 4") + '"/>';
+      out += '<text x="' + (pl - 6) + '" y="' + (Number(yy) + 3) + '" text-anchor="end" style="' + soft + '">' + esc(compact(max * f)) + "</text>";
+    });
+
     for (let i = 0; i < n; i++) {
       const gx = pl + i * gw + (gw - bw * series.length) / 2;
       series.forEach((s, si) => {
         const v = s.values[i] || 0;
         const h = v > 0 ? Math.max(3, (v / max) * (H - pt - pb)) : 0;
         const x = gx + si * bw;
-        const y = H - pb - h;
-        out += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + (bw - 3).toFixed(1) + '" height="' + h.toFixed(1) + '" rx="4" style="fill:' + s.color + '"/>';
+        const top = H - pb - h;
+        if (h > 0) {
+          out += '<rect x="' + x.toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + (bw - 3).toFixed(1) + '" height="' + h.toFixed(1) + '" rx="4" fill="url(#adbar' + si + ')"/>';
+        }
         if (series.length === 1 && v > 0) {
-          out += '<text x="' + (x + (bw - 3) / 2).toFixed(1) + '" y="' + (y - 4).toFixed(1) + '" text-anchor="middle" style="' + soft + '">' + esc(compact(v)) + "</text>";
+          out += '<text x="' + (x + (bw - 3) / 2).toFixed(1) + '" y="' + (top - 4).toFixed(1) + '" text-anchor="middle" style="' + soft + '">' + esc(compact(v)) + "</text>";
         }
       });
-      out += '<text x="' + (pl + i * gw + gw / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" style="' + soft + '">' + esc(days[i].slice(8) + "/" + days[i].slice(5, 7)) + "</text>";
+      const today = i === n - 1;
+      out +=
+        '<text x="' + (pl + i * gw + gw / 2).toFixed(1) + '" y="' + (H - 9) + '" text-anchor="middle" style="' + soft + (today ? ";font-weight:700;fill:var(--text)" : "") + '">' +
+        esc(dayLabel(days[i])) + "</text>";
     }
     return out + "</svg>";
   }
@@ -260,6 +300,7 @@
     id: "dashboard",
     root: null,
     data: null,
+    at: null,
     metric: "money",
     timer: null,
 
@@ -274,6 +315,15 @@
           this.render();
         } else if (a === "goto") {
           go("tasks", false, { view: el.dataset.view, pf: el.dataset.pf });
+        } else if (a === "qaProofs") {
+          go("tasks", false, { view: "proofs" });
+        } else if (a === "qaPayouts") {
+          go("tasks", false, { view: "payouts", pf: "approval" });
+        } else if (a === "qaNew") {
+          go("tasks", false, { view: "tasks" });
+          setTimeout(() => Pages.tasks && Pages.tasks.openForm && Pages.tasks.openForm(null), 200);
+        } else if (a === "qaCast") {
+          go("broadcast");
         } else if (a === "refresh") {
           UI.haptic("light");
           this.load();
@@ -294,6 +344,7 @@
     async load() {
       try {
         this.data = await API.get("/admin/dashboard");
+        this.at = new Date();
       } catch (e) {
         if (!this.data) UI.handleError(e);
         return;
@@ -309,14 +360,19 @@
         return;
       }
       const k = d.kpis, p = d.pending, c = d.chart;
+      const time = this.at ? this.at.toLocaleTimeString(I18n.lang() === "bn" ? "bn-BD" : "en-IN", { hour: "2-digit", minute: "2-digit" }) : "";
+
+      const qa = (act, ico, label, badge) =>
+        '<button class="qa" data-act="' + act + '"><span class="qa-ico">' + icon(ico) + "</span>" + esc(label) +
+        (badge > 0 ? '<span class="qa-badge">' + UI.num(badge) + "</span>" : "") + "</button>";
+
+      const att = (ico, label, n, view, pf, canBeHot) =>
+        '<button class="att-row ' + (canBeHot && n > 0 ? "hot" : "") + '" data-act="goto" data-view="' + view + '"' + (pf ? ' data-pf="' + pf + '"' : "") + ">" +
+        '<span class="att-ico">' + icon(ico) + '</span><span class="att-txt">' + esc(label) + '</span><span class="att-n">' + UI.num(n) + "</span>" + icon("chevron-right", "sm") + "</button>";
 
       const kpi = (ico, label, value, sub) =>
         '<div class="kpi"><div class="kpi-ico">' + icon(ico) + "</div><b>" + esc(value) + "</b><span>" + esc(label) + "</span>" +
         (sub ? "<small>" + esc(sub) + "</small>" : "") + "</div>";
-
-      const tile = (n, label, view, pf, hot) =>
-        '<button class="pend ' + (hot && n > 0 ? "hot" : "") + '" data-act="goto" data-view="' + view + '"' + (pf ? ' data-pf="' + pf + '"' : "") + ">" +
-        "<b>" + UI.num(n) + "</b><span>" + esc(label) + "</span></button>";
 
       let series, legend;
       if (this.metric === "users") {
@@ -338,24 +394,36 @@
       const chip = (v, key) => '<button class="chip ' + (this.metric === v ? "active" : "") + '" data-act="metric" data-v="' + v + '">' + esc(t(key)) + "</button>";
 
       this.root.innerHTML =
-        '<div class="page-head ad-head-row"><div><div class="page-title">' + esc(t("ad.d.title")) + '</div><div class="page-sub">' + esc(t("ad.d.sub")) + "</div></div>" +
+        '<div class="page-head ad-head-row"><div><div class="page-title">' + esc(t("ad.d.title")) + "</div>" +
+        '<div class="ad-updated">' + esc(t("ad.d.updated", { time })) + "</div></div>" +
         '<button class="icon-btn" data-act="refresh" aria-label="Refresh">' + icon("refresh") + "</button></div>" +
 
-        '<div class="section-head" style="margin-top:4px"><div class="section-title">' + esc(t("ad.d.pending")) + "</div></div>" +
-        '<div class="card"><div class="pend-grid">' +
-        tile(p.proofs, t("ad.p.proofs"), "proofs", "", true) +
-        tile(p.withdrawalsToApprove, t("ad.p.approval"), "payouts", "approval", true) +
-        tile(p.withdrawalsProcessing, t("ad.p.processing"), "payouts", "processing", false) +
-        tile(p.depositsOpen, t("ad.p.deposits"), "payouts", "deposits", false) +
+        '<div class="qa-row">' +
+        qa("qaProofs", "image", t("ad.d.qaProofs"), p.proofs) +
+        qa("qaPayouts", "wallet", t("ad.d.qaPayouts"), p.withdrawalsToApprove) +
+        qa("qaNew", "plus", t("ad.d.qaNew"), 0) +
+        qa("qaCast", "megaphone", t("ad.d.qaCast"), 0) +
+        "</div>" +
+
+        '<div class="ad-hero"><div class="ad-hero-label">' + icon("trending-up", "sm") + esc(t("ad.d.hero")) + "</div>" +
+        '<div class="ad-hero-amount">' + esc(money(k.totalDeposited)) + "</div>" +
+        '<div class="ad-hero-sub">' + esc(t("ad.d.heroSub", { n: UI.num(k.depositCount) })) + "</div>" +
+        '<div class="ad-hero-grid">' +
+        "<div><b>" + esc(money(k.totalWithdrawn)) + "</b><span>" + esc(t("ad.d.hWithdrawn")) + "</span></div>" +
+        "<div><b>" + esc(money(k.feeRevenue)) + "</b><span>" + esc(t("ad.d.hFees")) + "</span></div>" +
+        "<div><b>" + esc(money(k.userBalances)) + "</b><span>" + esc(t("ad.d.hBalances")) + "</span></div>" +
         "</div></div>" +
+
+        '<div class="card"><div class="card-title" style="margin-bottom:4px">' + esc(t("ad.d.pending")) + "</div>" +
+        att("image", t("ad.p.proofs"), p.proofs, "proofs", "", true) +
+        att("arrow-up-circle", t("ad.p.approval"), p.withdrawalsToApprove, "payouts", "approval", true) +
+        att("clock", t("ad.p.processing"), p.withdrawalsProcessing, "payouts", "processing", false) +
+        att("arrow-down-circle", t("ad.p.deposits"), p.depositsOpen, "payouts", "deposits", false) +
+        "</div>" +
 
         '<div class="kpi-grid">' +
         kpi("users", t("ad.k.users"), UI.num(k.totalUsers), t("ad.k.newToday", { n: k.newToday })) +
         kpi("activity", t("ad.k.active"), UI.num(k.active24h)) +
-        kpi("arrow-down-circle", t("ad.k.deposited"), money(k.totalDeposited), t("ad.k.depCount", { n: k.depositCount })) +
-        kpi("arrow-up-circle", t("ad.k.withdrawn"), money(k.totalWithdrawn), t("ad.k.wdCount", { n: k.withdrawCount })) +
-        kpi("percent", t("ad.k.fees"), money(k.feeRevenue)) +
-        kpi("wallet", t("ad.k.balances"), money(k.userBalances), t("ad.k.balancesSub")) +
         kpi("check-square", t("ad.k.tasks"), UI.num(k.activeTasks)) +
         kpi("ban", t("ad.k.banned"), UI.num(k.banned)) +
         "</div>" +
@@ -363,7 +431,7 @@
         '<div class="card"><div class="card-title">' + esc(t("ad.d.week")) + "</div>" +
         '<div class="chips" style="margin-top:10px">' + chip("money", "ad.d.mMoney") + chip("users", "ad.d.mUsers") + chip("tasks", "ad.d.mTasks") + "</div>" +
         '<div class="chart-wrap">' + chartSvg(c.days, series) + "</div>" +
-        '<div class="legend">' + legend.map((l) => '<span><i style="background:' + l[2] + '"></i>' + esc(l[0]) + " · <b>" + esc(l[1]) + "</b></span>").join("") + "</div></div>";
+        '<div class="legend">' + legend.map((l) => '<span><i style="background:' + l[2] + '"></i>' + esc(l[0]) + " <b>" + esc(l[1]) + "</b></span>").join("") + "</div></div>";
     },
   };
 })();
