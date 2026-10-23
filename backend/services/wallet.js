@@ -10,11 +10,7 @@ const bot = require("./telegramBot");
 async function credit(userId, amount, type, note = "", ref = "", inc = {}) {
   amount = round2(amount);
   if (!(amount > 0)) throw new Error("Invalid credit amount");
-  const user = await User.findByIdAndUpdate(
-    userId,
-    { $inc: { balance: amount, ...inc } },
-    { new: true }
-  );
+  const user = await User.findByIdAndUpdate(userId, { $inc: { balance: amount, ...inc } }, { new: true });
   if (!user) throw new Error("User not found");
   await Transaction.create({
     user: user._id,
@@ -50,31 +46,33 @@ async function debit(userId, amount, type, note = "", ref = "", inc = {}) {
   return user;
 }
 
-async function payReferral(user, reward, settings, ref) {
-  const pairs = [
-    [user.referredBy, settings.referral.l1Percent, "referral_l1"],
-    [user.referredBy2, settings.referral.l2Percent, "referral_l2"],
-  ];
-  for (const [refTgId, pct, type] of pairs) {
-    if (!refTgId) continue;
-    const amt = round2((reward * pct) / 100);
-    if (!(amt > 0)) continue;
-    const referrer = await User.findOne({ tgId: refTgId });
-    if (!referrer || referrer.isBanned) continue;
-    const updated = await credit(
-      referrer._id,
-      amt,
-      type,
-      type === "referral_l1" ? "Level 1 referral commission" : "Level 2 referral commission",
-      ref,
-      { referralEarnings: amt }
-    );
-    bot.notifyUser(
-      updated,
-      `You earned ₹${amt} referral commission.`,
-      `আপনি ₹${amt} রেফারেল কমিশন পেয়েছেন।`
-    );
-  }
+// Fixed reward to the referrer, paid once per referred user.
+// trigger is "join" or "first_task"; it must match the Settings choice.
+async function rewardReferral(user, trigger, settings) {
+  const r = (settings && settings.referral) || {};
+  const amt = round2(r.reward);
+  if (!r.enabled || r.payOn !== trigger || !(amt > 0) || !user.referredBy) return null;
+
+  // Atomic: only the first caller gets to pay
+  const claimed = await User.findOneAndUpdate(
+    { _id: user._id, referralRewarded: { $ne: true } },
+    { $set: { referralRewarded: true } }
+  );
+  if (!claimed) return null;
+
+  const referrer = await User.findOne({ tgId: user.referredBy });
+  if (!referrer || referrer.isBanned) return null;
+
+  const updated = await credit(referrer._id, amt, "referral", `Referral reward (${user.tgId})`, String(user.tgId), {
+    referralEarnings: amt,
+  });
+  bot.notifyUser(
+    updated,
+    `You earned ₹${amt} for inviting a friend.`,
+    `বন্ধুকে আমন্ত্রণ জানানোর জন্য আপনি ₹${amt} পেয়েছেন।`,
+    [bot.openAppButton("Open TaskGenX")]
+  );
+  return updated;
 }
 
 async function approveSubmission(subId, adminTgId) {
@@ -93,19 +91,14 @@ async function approveSubmission(subId, adminTgId) {
       tasksApproved: 1,
     });
   } catch (e) {
-    await Submission.updateOne(
-      { _id: sub._id },
-      { $set: { status: "pending", reviewedBy: null, reviewedAt: null } }
-    );
+    await Submission.updateOne({ _id: sub._id }, { $set: { status: "pending", reviewedBy: null, reviewedAt: null } });
     throw e;
   }
 
-  if (settings.referral.enabled) {
-    try {
-      await payReferral(user, sub.reward, settings, String(sub._id));
-    } catch (e) {
-      console.error("Referral payout failed:", e.message);
-    }
+  try {
+    await rewardReferral(user, "first_task", settings);
+  } catch (e) {
+    console.error("Referral reward failed:", e.message);
   }
   await syncLevel(user, settings);
 
@@ -124,24 +117,14 @@ async function approveSubmission(subId, adminTgId) {
 async function rejectSubmission(subId, adminTgId, reason) {
   const sub = await Submission.findOneAndUpdate(
     { _id: subId, status: "pending" },
-    {
-      $set: {
-        status: "rejected",
-        rejectReason: reason,
-        reviewedBy: adminTgId,
-        reviewedAt: new Date(),
-      },
-    },
+    { $set: { status: "rejected", rejectReason: reason, reviewedBy: adminTgId, reviewedAt: new Date() } },
     { new: true }
   );
   if (!sub) return null;
 
   await Task.updateOne({ _id: sub.task, filled: { $gt: 0 } }, { $inc: { filled: -1 } });
 
-  const [user, task] = await Promise.all([
-    User.findById(sub.user),
-    Task.findById(sub.task).select("title"),
-  ]);
+  const [user, task] = await Promise.all([User.findById(sub.user), Task.findById(sub.task).select("title")]);
   const title = escapeHtml((task && task.title.en) || "Task");
   const titleBn = escapeHtml((task && (task.title.bn || task.title.en)) || "টাস্ক");
   const why = escapeHtml(reason);
@@ -154,4 +137,4 @@ async function rejectSubmission(subId, adminTgId, reason) {
   return sub;
 }
 
-module.exports = { credit, debit, approveSubmission, rejectSubmission };
+module.exports = { credit, debit, rewardReferral, approveSubmission, rejectSubmission };
