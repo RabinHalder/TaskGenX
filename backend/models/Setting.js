@@ -4,45 +4,39 @@ const { Schema } = mongoose;
 const T = (def) => ({ type: String, default: def });
 const N = (def) => ({ type: Number, default: def });
 const B = (def) => ({ type: Boolean, default: def });
+const limits = (min, max, daily) => ({ enabled: B(true), min: N(min), max: N(max), dailyLimit: N(daily) });
 
 const levelSchema = new Schema(
   {
     name: String,
-    nameBn: String,
     minTasks: Number,
     minReferrals: Number,
     withdrawFeePercent: Number,
-    monthlyWithdrawLimit: Number,
+    monthlyWithdrawals: { type: Number, default: 2 },
   },
   { _id: false }
 );
 
-const categorySchema = new Schema(
-  { id: String, en: String, bn: String, icon: String },
-  { _id: false }
-);
+const categorySchema = new Schema({ id: String, en: String, icon: String }, { _id: false });
 
-const faqSchema = new Schema(
-  { qEn: String, qBn: String, aEn: String, aBn: String },
-  { _id: false }
-);
+const faqSchema = new Schema({ qEn: String, qBn: String, aEn: String, aBn: String }, { _id: false });
 
 const defaultLevels = () => [
-  { name: "Bronze", nameBn: "ব্রোঞ্জ", minTasks: 0, minReferrals: 0, withdrawFeePercent: 10, monthlyWithdrawLimit: 2000 },
-  { name: "Silver", nameBn: "সিলভার", minTasks: 10, minReferrals: 2, withdrawFeePercent: 8, monthlyWithdrawLimit: 5000 },
-  { name: "Gold", nameBn: "গোল্ড", minTasks: 30, minReferrals: 5, withdrawFeePercent: 6, monthlyWithdrawLimit: 10000 },
-  { name: "Platinum", nameBn: "প্লাটিনাম", minTasks: 80, minReferrals: 10, withdrawFeePercent: 5, monthlyWithdrawLimit: 20000 },
-  { name: "Diamond", nameBn: "ডায়মন্ড", minTasks: 150, minReferrals: 25, withdrawFeePercent: 4, monthlyWithdrawLimit: 40000 },
-  { name: "Master", nameBn: "মাস্টার", minTasks: 300, minReferrals: 50, withdrawFeePercent: 3, monthlyWithdrawLimit: 80000 },
-  { name: "Grandmaster", nameBn: "গ্র্যান্ডমাস্টার", minTasks: 600, minReferrals: 100, withdrawFeePercent: 2, monthlyWithdrawLimit: 150000 },
+  { name: "Bronze", minTasks: 0, minReferrals: 0, withdrawFeePercent: 10, monthlyWithdrawals: 2 },
+  { name: "Silver", minTasks: 10, minReferrals: 2, withdrawFeePercent: 8, monthlyWithdrawals: 2 },
+  { name: "Gold", minTasks: 30, minReferrals: 5, withdrawFeePercent: 6, monthlyWithdrawals: 3 },
+  { name: "Platinum", minTasks: 80, minReferrals: 10, withdrawFeePercent: 5, monthlyWithdrawals: 4 },
+  { name: "Diamond", minTasks: 150, minReferrals: 25, withdrawFeePercent: 4, monthlyWithdrawals: 5 },
+  { name: "Master", minTasks: 300, minReferrals: 50, withdrawFeePercent: 3, monthlyWithdrawals: 6 },
+  { name: "Grandmaster", minTasks: 600, minReferrals: 100, withdrawFeePercent: 2, monthlyWithdrawals: 8 },
 ];
 
 const defaultCategories = () => [
-  { id: "social", en: "Social", bn: "সোশ্যাল", icon: "users" },
-  { id: "app", en: "Apps", bn: "অ্যাপ", icon: "smartphone" },
-  { id: "video", en: "Video", bn: "ভিডিও", icon: "play" },
-  { id: "survey", en: "Survey", bn: "সার্ভে", icon: "clipboard" },
-  { id: "other", en: "Other", bn: "অন্যান্য", icon: "grid" },
+  { id: "social", en: "Social Media", icon: "users" },
+  { id: "app", en: "App Install", icon: "smartphone" },
+  { id: "video", en: "Video", icon: "play" },
+  { id: "survey", en: "Survey", icon: "clipboard" },
+  { id: "other", en: "Other", icon: "grid" },
 ];
 
 const defaultFaq = () => [
@@ -65,10 +59,10 @@ const defaultFaq = () => [
     aBn: "Profile-এ আপনার UPI বা FINZO Wallet তথ্য সেভ করুন, তারপর Home ট্যাবে Withdraw চাপুন।",
   },
   {
-    qEn: "How does the referral bonus work?",
-    qBn: "রেফারেল বোনাস কীভাবে কাজ করে?",
-    aEn: "Share your link. You earn a percentage of the task earnings of people you invite and of the people they invite.",
-    aBn: "আপনার লিংক শেয়ার করুন। আপনি যাদের আমন্ত্রণ করবেন এবং তারা যাদের আমন্ত্রণ করবে, তাদের টাস্ক আয়ের একটি অংশ আপনি পাবেন।",
+    qEn: "How does the referral reward work?",
+    qBn: "রেফারেল পুরস্কার কীভাবে কাজ করে?",
+    aEn: "Share your invite link. You get a fixed reward for every friend who joins and completes their first approved task.",
+    aBn: "আপনার আমন্ত্রণ লিংক শেয়ার করুন। যে বন্ধু যোগ দিয়ে প্রথম টাস্ক সম্পন্ন করবে, তার জন্য আপনি নির্দিষ্ট পুরস্কার পাবেন।",
   },
 ];
 
@@ -87,9 +81,7 @@ const settingSchema = new Schema(
       maintenanceMessage: T("We are upgrading. Please try again soon."),
     },
 
-    bonus: {
-      welcome: N(0),
-    },
+    bonus: { welcome: N(0) },
 
     deposit: {
       enabled: B(true),
@@ -100,20 +92,17 @@ const settingSchema = new Schema(
 
     withdraw: {
       enabled: B(true),
-      min: N(100),
-      max: N(25000),
-      dailyLimit: N(25000),
       autoPayout: B(true),
       approvalEnabled: B(true),
       approvalAbove: N(5000),
-      upiEnabled: B(true),
-      walletEnabled: B(true),
+      upi: limits(100, 25000, 25000),
+      wallet: limits(50, 10000, 10000),
     },
 
     referral: {
       enabled: B(true),
-      l1Percent: N(10),
-      l2Percent: N(5),
+      reward: N(5),
+      payOn: { type: String, enum: ["first_task", "join"], default: "first_task" },
     },
 
     checkin: {
@@ -121,9 +110,7 @@ const settingSchema = new Schema(
       rewards: { type: [Number], default: () => [1, 1, 2, 2, 3, 3, 5] },
     },
 
-    proof: {
-      maxSizeMB: N(5),
-    },
+    proof: { maxSizeMB: N(5) },
 
     club: {
       enabled: B(true),
