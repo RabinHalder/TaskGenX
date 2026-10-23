@@ -3,6 +3,7 @@ const bot = require("./telegramBot");
 const { escapeHtml } = require("../utils/helpers");
 
 // Only the fields the app needs (names are English only).
+// minTasks / minReferrals = the mission to complete at this level to reach the next one.
 function cleanLevel(L) {
   if (!L) return null;
   return {
@@ -14,7 +15,7 @@ function cleanLevel(L) {
   };
 }
 
-// Progress toward the NEXT level: tasks counted since the user entered the current level.
+// Progress toward the mission of the user's CURRENT level.
 function levelInfo(settings, user) {
   const levels = settings.levels || [];
   const idx = Math.min(Math.max(user.level || 1, 1), levels.length || 1);
@@ -27,29 +28,35 @@ function levelInfo(settings, user) {
     next,
     progress: next
       ? {
-          tasks: { have: Math.min(user.levelTasks || 0, next.minTasks), need: next.minTasks },
-          referrals: { have: user.referralCount || 0, need: next.minReferrals },
+          tasks: { have: Math.min(user.levelTasks || 0, current.minTasks), need: current.minTasks },
+          referrals: { have: Math.min(user.levelReferrals || 0, current.minReferrals), need: current.minReferrals },
         }
       : null,
   };
 }
 
-// Moves the user up one or more levels when the targets of the next level are met.
-// Bronze -> Silver uses the Silver targets, Silver -> Gold uses the Gold targets, and so on.
+// Moves the user up when the mission of their current level is complete (tasks AND referrals).
+// Silver mission (for example 10 tasks + 5 referrals) takes the user from Silver to Gold.
 async function syncLevel(user, settings) {
   const levels = settings.levels || [];
   const from = Math.min(Math.max(user.level || 1, 1), levels.length || 1);
   let level = from;
-  let pool = user.levelTasks || 0;
-  let used = 0;
+  let poolTasks = user.levelTasks || 0;
+  let poolRefs = user.levelReferrals || 0;
+  let usedTasks = 0;
+  let usedRefs = 0;
 
   while (level < levels.length) {
-    const nxt = levels[level];
-    const needTasks = Number(nxt.minTasks) || 0;
-    const needRefs = Number(nxt.minReferrals) || 0;
-    if (pool >= needTasks && (user.referralCount || 0) >= needRefs) {
-      pool -= needTasks;
-      used += needTasks;
+    const mission = levels[level - 1];
+    const needTasks = Number(mission.minTasks) || 0;
+    const needRefs = Number(mission.minReferrals) || 0;
+    // A level without any mission never moves the user up on its own
+    if (needTasks === 0 && needRefs === 0) break;
+    if (poolTasks >= needTasks && poolRefs >= needRefs) {
+      poolTasks -= needTasks;
+      poolRefs -= needRefs;
+      usedTasks += needTasks;
+      usedRefs += needRefs;
       level++;
     } else {
       break;
@@ -60,11 +67,12 @@ async function syncLevel(user, settings) {
   // Only one request can win this update (it checks the old level)
   const res = await User.updateOne(
     { _id: user._id, level: user.level || 1 },
-    { $set: { level }, $inc: { levelTasks: -used } }
+    { $set: { level }, $inc: { levelTasks: -usedTasks, levelReferrals: -usedRefs } }
   );
   if (res.modifiedCount === 1) {
     user.level = level;
-    user.levelTasks = pool;
+    user.levelTasks = poolTasks;
+    user.levelReferrals = poolRefs;
     const name = escapeHtml((levels[level - 1] || {}).name || "");
     bot.notifyUser(
       user,
