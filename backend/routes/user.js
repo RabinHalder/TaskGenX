@@ -4,9 +4,9 @@ const Transaction = require("../models/Transaction");
 const Submission = require("../models/Submission");
 const Payment = require("../models/Payment");
 const { authenticate } = require("../middleware/auth");
-const { syncLevel, levelInfo } = require("../services/levels");
+const { syncLevel, levelInfo, cleanLevel } = require("../services/levels");
 const wallet = require("../services/wallet");
-const { dateKey, yesterdayKey, round2, wrap } = require("../utils/helpers");
+const { dateKey, monthKey, yesterdayKey, round2, wrap } = require("../utils/helpers");
 const { fail } = require("../utils/errors");
 const { referralLink } = require("../utils/links");
 
@@ -28,7 +28,6 @@ function publicUser(u) {
     level: u.level,
     tasksApproved: u.tasksApproved,
     referralCount: u.referralCount,
-    referralCount2: u.referralCount2,
     withdrawDetails: {
       upi: u.withdrawDetails.upi,
       finzoWallet: u.withdrawDetails.finzoWallet,
@@ -47,6 +46,8 @@ function publicUser(u) {
   };
 }
 
+const method = (m) => ({ enabled: m.enabled, min: m.min, max: m.max, dailyLimit: m.dailyLimit });
+
 function publicConfig(s) {
   return {
     app: {
@@ -63,24 +64,21 @@ function publicConfig(s) {
     },
     withdraw: {
       enabled: s.withdraw.enabled,
-      min: s.withdraw.min,
-      max: s.withdraw.max,
-      dailyLimit: s.withdraw.dailyLimit,
-      upiEnabled: s.withdraw.upiEnabled,
-      walletEnabled: s.withdraw.walletEnabled,
       approvalEnabled: s.withdraw.approvalEnabled,
       approvalAbove: s.withdraw.approvalAbove,
+      upi: method(s.withdraw.upi),
+      wallet: method(s.withdraw.wallet),
     },
     referral: {
       enabled: s.referral.enabled,
-      l1Percent: s.referral.l1Percent,
-      l2Percent: s.referral.l2Percent,
+      reward: s.referral.reward,
+      payOn: s.referral.payOn,
     },
     checkin: { enabled: s.checkin.enabled, rewards: s.checkin.rewards },
     club: { enabled: s.club.enabled },
     proof: { maxSizeMB: s.proof.maxSizeMB },
-    levels: s.levels,
-    categories: s.categories,
+    levels: (s.levels || []).map(cleanLevel),
+    categories: (s.categories || []).map((c) => ({ id: c.id, en: c.en, icon: c.icon })),
     faq: s.faq,
   };
 }
@@ -103,12 +101,18 @@ router.get(
     const rewards = settings.checkin.rewards && settings.checkin.rewards.length ? settings.checkin.rewards : [0];
     const doneToday = user.checkin.lastDate === today;
 
-    const [pendingProofs, pendingWithdraws] = await Promise.all([
+    const [pendingProofs, pendingWithdraws, withdrawalsThisMonth] = await Promise.all([
       Submission.countDocuments({ tgId: user.tgId, status: "pending" }),
       Payment.countDocuments({
         tgId: user.tgId,
         type: "withdraw",
         status: { $in: ["awaiting_approval", "processing"] },
+      }),
+      Payment.countDocuments({
+        tgId: user.tgId,
+        type: "withdraw",
+        status: { $in: ["created", "awaiting_approval", "processing", "success"] },
+        monthKey: monthKey(new Date(), tz),
       }),
     ]);
 
@@ -120,10 +124,10 @@ router.get(
         enabled: settings.checkin.enabled,
         streak,
         doneToday,
-        nextReward: rewards[(doneToday ? streak : streak) % rewards.length],
+        nextReward: rewards[streak % rewards.length],
         rewards,
       },
-      stats: { pendingProofs, pendingWithdraws },
+      stats: { pendingProofs, pendingWithdraws, withdrawalsThisMonth },
       referral: { code: String(user.tgId), link: referralLink(settings, user.tgId) },
       config: publicConfig(settings),
     });
@@ -213,7 +217,7 @@ router.put(
     if (upi && !/^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/.test(upi)) {
       throw fail(400, "Invalid UPI ID (example: name@bank)");
     }
-    if (wal && !/^[a-zA-Z0-9+_.-]{3,64}$/.test(wal)) {
+    if (wal && !/^\d{10}$/.test(wal)) {
       throw fail(400, "Invalid FINZO Wallet ID");
     }
     await User.updateOne(
