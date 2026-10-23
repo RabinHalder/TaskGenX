@@ -1,15 +1,15 @@
-/* TaskGenX admin: wording for the step-by-step level system (loaded after settings.js) */
+/* TaskGenX admin: wording for the level missions (loaded after settings.js) */
 (function () {
   "use strict";
 
   I18n.extend(
     {
       "ad.s.lvNote":
-        "One line per level. Tasks: how many tasks a user must complete at the PREVIOUS level to reach this level (Bronze to Silver uses the Silver line, Silver to Gold uses the Gold line). Referrals: total friends invited, 0 means not needed. Withdrawals / month: how many withdrawals a user can make each month. Level names are shown in English.",
+        "One line per level. Tasks and Referrals are the mission a user must complete at THAT level (both) to move up. Example: Silver = 10 tasks and 5 referrals takes the user from Silver to Gold. Bronze can have a mission too. The last level has no mission. Withdrawals / month: how many withdrawals a user can make each month. Level names are shown in English.",
     },
     {
       "ad.s.lvNote":
-        "প্রতি লেভেল একটি লাইনে। Tasks: এই লেভেলে পৌঁছাতে ইউজারকে আগের লেভেলে কতটি টাস্ক শেষ করতে হবে (ব্রোঞ্জ থেকে সিলভারে যেতে Silver লাইন, সিলভার থেকে গোল্ডে যেতে Gold লাইন)। Referrals: মোট কতজন বন্ধুকে আমন্ত্রণ জানাতে হবে, 0 মানে লাগবে না। Withdrawals / month: একজন ইউজার প্রতি মাসে কতবার উইথড্র করতে পারবেন। লেভেলের নাম ইংরেজিতে দেখাবে।",
+        "প্রতি লেভেল একটি লাইনে। Tasks ও Referrals হলো ওই লেভেলে থেকে ইউজারকে যা শেষ করতে হবে (দুটোই), তবেই পরের লেভেলে উঠবেন। যেমন: Silver = ১০ টাস্ক ও ৫ রেফারেল মানে Silver থেকে Gold-এ উঠতে এটুকু করতে হবে। Bronze-এও মিশন দেওয়া যায়। শেষ লেভেলের কোনো মিশন নেই। Withdrawals / month: একজন ইউজার প্রতি মাসে কতবার উইথড্র করতে পারবেন। লেভেলের নাম ইংরেজিতে দেখাবে।",
     }
   );
 })();
