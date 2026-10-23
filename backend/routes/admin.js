@@ -275,9 +275,10 @@ router.get(
     const u = await User.findOne({ tgId }).lean();
     if (!u) throw fail(404, "User not found");
 
-    const [txs, wdCount] = await Promise.all([
+    const [txs, wdCount, rewarded] = await Promise.all([
       Transaction.find({ tgId }).sort({ createdAt: -1 }).limit(20).lean(),
       Payment.countDocuments({ tgId, type: "withdraw", status: "success" }),
+      User.countDocuments({ referredBy: tgId, referralRewarded: true }),
     ]);
 
     res.json({
@@ -291,7 +292,7 @@ router.get(
         level: u.level,
         tasksApproved: u.tasksApproved,
         referralCount: u.referralCount,
-        referralCount2: u.referralCount2,
+        referralsRewarded: rewarded,
         referredBy: u.referredBy,
         withdrawDetails: u.withdrawDetails,
         language: u.language,
@@ -339,9 +340,7 @@ router.post(
   wrap(async (req, res) => {
     const tgId = Number(req.params.tgId);
     if (!Number.isInteger(tgId)) throw fail(404, "User not found");
-    const amount = round2(
-      num(req.body && req.body.amount, "Amount", { min: -1000000, max: 1000000 })
-    );
+    const amount = round2(num(req.body && req.body.amount, "Amount", { min: -1000000, max: 1000000 }));
     if (amount === 0) throw fail(400, "Amount cannot be zero");
     const note = str(req.body && req.body.note, "Note", 120);
 
@@ -493,9 +492,7 @@ router.get(
   "/submissions",
   wrap(async (req, res) => {
     const page = pageOf(req);
-    const status = ["pending", "approved", "rejected"].includes(req.query.status)
-      ? req.query.status
-      : "pending";
+    const status = ["pending", "approved", "rejected"].includes(req.query.status) ? req.query.status : "pending";
     const filter = { status };
     if (req.query.task && mongoose.isValidObjectId(req.query.task)) filter.task = req.query.task;
 
@@ -845,24 +842,36 @@ function buildSettingsUpdate(b) {
   if (b.withdraw && typeof b.withdraw === "object") {
     const w = b.withdraw;
     if (has(w, "enabled")) set["withdraw.enabled"] = bool(w.enabled);
-    if (has(w, "min")) set["withdraw.min"] = num(w.min, "Minimum withdraw", { min: 1, max: 1000000 });
-    if (has(w, "max")) set["withdraw.max"] = num(w.max, "Maximum withdraw", { min: 1, max: 10000000 });
-    if (has(w, "dailyLimit")) set["withdraw.dailyLimit"] = num(w.dailyLimit, "Daily limit", { min: 1, max: 100000000 });
     if (has(w, "autoPayout")) set["withdraw.autoPayout"] = bool(w.autoPayout);
     if (has(w, "approvalEnabled")) set["withdraw.approvalEnabled"] = bool(w.approvalEnabled);
-    if (has(w, "approvalAbove")) set["withdraw.approvalAbove"] = num(w.approvalAbove, "Approval amount", { min: 0, max: 100000000 });
-    if (has(w, "upiEnabled")) set["withdraw.upiEnabled"] = bool(w.upiEnabled);
-    if (has(w, "walletEnabled")) set["withdraw.walletEnabled"] = bool(w.walletEnabled);
-    if (has(w, "min") && has(w, "max") && Number(w.min) > Number(w.max)) {
-      throw fail(400, "Minimum withdraw cannot be above maximum");
+    if (has(w, "approvalAbove")) {
+      set["withdraw.approvalAbove"] = num(w.approvalAbove, "Approval amount", { min: 0, max: 100000000 });
+    }
+    // UPI and FINZO Wallet limits are saved separately
+    for (const m of ["upi", "wallet"]) {
+      const x = w[m];
+      if (!x || typeof x !== "object") continue;
+      const label = m === "upi" ? "UPI" : "Wallet";
+      if (has(x, "enabled")) set[`withdraw.${m}.enabled`] = bool(x.enabled);
+      if (has(x, "min")) set[`withdraw.${m}.min`] = num(x.min, `${label} minimum`, { min: 1, max: 1000000 });
+      if (has(x, "max")) set[`withdraw.${m}.max`] = num(x.max, `${label} maximum`, { min: 1, max: 10000000 });
+      if (has(x, "dailyLimit")) {
+        set[`withdraw.${m}.dailyLimit`] = num(x.dailyLimit, `${label} daily limit`, { min: 1, max: 100000000 });
+      }
+      if (has(x, "min") && has(x, "max") && Number(x.min) > Number(x.max)) {
+        throw fail(400, `${label} minimum cannot be above maximum`);
+      }
     }
   }
 
   if (b.referral && typeof b.referral === "object") {
     const r = b.referral;
     if (has(r, "enabled")) set["referral.enabled"] = bool(r.enabled);
-    if (has(r, "l1Percent")) set["referral.l1Percent"] = num(r.l1Percent, "Level 1 %", { min: 0, max: 100 });
-    if (has(r, "l2Percent")) set["referral.l2Percent"] = num(r.l2Percent, "Level 2 %", { min: 0, max: 100 });
+    if (has(r, "reward")) set["referral.reward"] = round2(num(r.reward, "Referral reward", { min: 0, max: 100000 }));
+    if (has(r, "payOn")) {
+      if (!["first_task", "join"].includes(r.payOn)) throw fail(400, "Invalid referral payout rule");
+      set["referral.payOn"] = r.payOn;
+    }
   }
 
   if (b.checkin && typeof b.checkin === "object") {
@@ -872,9 +881,7 @@ function buildSettingsUpdate(b) {
       if (!Array.isArray(c.rewards) || c.rewards.length < 1 || c.rewards.length > 31) {
         throw fail(400, "Check-in rewards need 1 to 31 values");
       }
-      set["checkin.rewards"] = c.rewards.map((v, i) =>
-        round2(num(v, `Check-in day ${i + 1}`, { min: 0, max: 1000 }))
-      );
+      set["checkin.rewards"] = c.rewards.map((v, i) => round2(num(v, `Check-in day ${i + 1}`, { min: 0, max: 1000 })));
     }
   }
 
@@ -891,9 +898,7 @@ function buildSettingsUpdate(b) {
 
   if (Array.isArray(b.admins)) {
     if (b.admins.length > 20) throw fail(400, "Too many extra admins (max 20)");
-    set.admins = [
-      ...new Set(b.admins.map((v) => num(v, "Admin ID", { min: 1, max: 99999999999999, int: true }))),
-    ];
+    set.admins = [...new Set(b.admins.map((v) => num(v, "Admin ID", { min: 1, max: 99999999999999, int: true })))];
   }
 
   if (Array.isArray(b.levels)) {
@@ -903,11 +908,10 @@ function buildSettingsUpdate(b) {
       const n = i + 1;
       return {
         name: str(L.name, `Level ${n} name`, 30, { required: true }),
-        nameBn: str(L.nameBn, `Level ${n} name (Bangla)`, 30),
         minTasks: i === 0 ? 0 : num(L.minTasks, `Level ${n} tasks`, { min: 0, max: 1000000, int: true }),
         minReferrals: i === 0 ? 0 : num(L.minReferrals, `Level ${n} referrals`, { min: 0, max: 1000000, int: true }),
         withdrawFeePercent: num(L.withdrawFeePercent, `Level ${n} fee %`, { min: 0, max: 100 }),
-        monthlyWithdrawLimit: num(L.monthlyWithdrawLimit, `Level ${n} monthly limit`, { min: 0, max: 100000000 }),
+        monthlyWithdrawals: num(L.monthlyWithdrawals, `Level ${n} withdrawals per month`, { min: 1, max: 100, int: true }),
       };
     });
   }
@@ -924,7 +928,6 @@ function buildSettingsUpdate(b) {
       return {
         id,
         en: str(c.en, "Category name", 30, { required: true }),
-        bn: str(c.bn, "Category name (Bangla)", 30),
         icon: str(c.icon || "grid", "Category icon", 20),
       };
     });
