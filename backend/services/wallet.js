@@ -86,9 +86,11 @@ async function approveSubmission(subId, adminTgId) {
   const settings = await getSettings();
   let user;
   try {
+    // levelTasks counts the tasks done at the current level
     user = await credit(sub.user, sub.reward, "task", "Task reward", String(sub._id), {
       totalEarned: sub.reward,
       tasksApproved: 1,
+      levelTasks: 1,
     });
   } catch (e) {
     await Submission.updateOne({ _id: sub._id }, { $set: { status: "pending", reviewedBy: null, reviewedAt: null } });
