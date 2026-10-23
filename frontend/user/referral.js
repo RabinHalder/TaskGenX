@@ -10,11 +10,10 @@
       "ref.heroTitle": "Earn {amount} per referral",
       "ref.heroFirst": "You get {amount} when a friend joins with your link and gets their first task approved.",
       "ref.heroJoin": "You get {amount} as soon as a friend joins with your link.",
-      "ref.code": "Your referral code",
       "ref.link": "Your invite link",
       "ref.share": "Share invite link",
       "ref.shareText": "Join {app}, complete simple tasks and earn real money!",
-      "ref.noLink": "The invite link is not ready yet. Share your referral code with friends instead.",
+      "ref.noLink": "Your invite link is not ready yet. Please try again later.",
       "ref.invited": "Invited",
       "ref.rewarded": "Rewarded",
       "ref.earned": "Earned",
@@ -32,11 +31,10 @@
       "ref.heroTitle": "প্রতি রেফারেলে {amount} আয় করুন",
       "ref.heroFirst": "আপনার লিংকে যোগ দিয়ে কোনো বন্ধুর প্রথম টাস্ক অনুমোদিত হলে আপনি {amount} পাবেন।",
       "ref.heroJoin": "আপনার লিংকে কোনো বন্ধু যোগ দিলেই আপনি {amount} পাবেন।",
-      "ref.code": "আপনার রেফারেল কোড",
       "ref.link": "আপনার আমন্ত্রণ লিংক",
       "ref.share": "আমন্ত্রণ লিংক শেয়ার করুন",
       "ref.shareText": "{app}-এ যোগ দিন, সহজ টাস্ক করুন এবং আসল টাকা আয় করুন!",
-      "ref.noLink": "আমন্ত্রণ লিংক এখনো তৈরি হয়নি। বন্ধুদের সাথে আপনার রেফারেল কোড শেয়ার করুন।",
+      "ref.noLink": "আমন্ত্রণ লিংক এখনো তৈরি হয়নি। একটু পরে আবার চেষ্টা করুন।",
       "ref.invited": "আমন্ত্রিত",
       "ref.rewarded": "পুরস্কার পেয়েছেন",
       "ref.earned": "মোট আয়",
@@ -60,8 +58,7 @@
       root.innerHTML = UI.skeleton("card", 3);
       UI.on(root, "click", "[data-act]", (e, el) => {
         const a = el.dataset.act;
-        if (a === "copyCode") UI.copy(this.data.code);
-        else if (a === "copyLink") UI.copy(this.data.link);
+        if (a === "copyLink") UI.copy(this.data.link);
         else if (a === "share") UI.shareLink(this.data.link, t("ref.shareText", { app: App.me.config.app.name }));
       });
     },
@@ -111,11 +108,9 @@
       this.root.innerHTML =
         head +
         '<div class="ref-hero"><h3>' + esc(t("ref.heroTitle", { amount })) + "</h3><p>" + esc(t(d.payOn === "join" ? "ref.heroJoin" : "ref.heroFirst", { amount })) + "</p>" +
-        '<div class="copy-box"><div class="val"><small>' + esc(t("ref.code")) + "</small>" + esc(d.code) + "</div>" +
-        '<button class="icon-btn" data-act="copyCode" aria-label="' + esc(t("common.copy")) + '">' + icon("copy") + "</button></div>" +
         (d.link
           ? '<div class="copy-box"><div class="val"><small>' + esc(t("ref.link")) + "</small>" + esc(d.link) + "</div>" +
-            '<button class="icon-btn" data-act="copyLink" aria-label="' + esc(t("common.copy")) + '">' + icon("link") + "</button></div>" +
+            '<button class="icon-btn" data-act="copyLink" aria-label="' + esc(t("common.copy")) + '">' + icon("copy") + "</button></div>" +
             '<button class="btn btn-light btn-block" data-act="share">' + icon("share", "sm") + esc(t("ref.share")) + "</button>"
           : '<p style="margin-top:12px">' + esc(t("ref.noLink")) + "</p>") +
         "</div>" +
