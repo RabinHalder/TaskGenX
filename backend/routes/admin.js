@@ -909,13 +909,21 @@ function buildSettingsUpdate(b) {
 
   if (Array.isArray(b.levels)) {
     if (b.levels.length < 1 || b.levels.length > 15) throw fail(400, "Levels must be between 1 and 15");
+    const count = b.levels.length;
     set.levels = b.levels.map((L, i) => {
       L = L || {};
       const n = i + 1;
+      // Every level except the last has a mission: tasks AND referrals to complete at that level
+      const isLast = i === count - 1;
+      const minTasks = isLast ? 0 : num(L.minTasks, `Level ${n} tasks`, { min: 0, max: 1000000, int: true });
+      const minReferrals = isLast ? 0 : num(L.minReferrals, `Level ${n} referrals`, { min: 0, max: 1000000, int: true });
+      if (!isLast && minTasks === 0 && minReferrals === 0) {
+        throw fail(400, `Level ${n} needs at least one task or referral to complete`);
+      }
       return {
         name: str(L.name, `Level ${n} name`, 30, { required: true }),
-        minTasks: i === 0 ? 0 : num(L.minTasks, `Level ${n} tasks`, { min: 0, max: 1000000, int: true }),
-        minReferrals: i === 0 ? 0 : num(L.minReferrals, `Level ${n} referrals`, { min: 0, max: 1000000, int: true }),
+        minTasks,
+        minReferrals,
         withdrawFeePercent: num(L.withdrawFeePercent, `Level ${n} fee %`, { min: 0, max: 100 }),
         monthlyWithdrawals: num(L.monthlyWithdrawals, `Level ${n} withdrawals per month`, { min: 1, max: 100, int: true }),
       };
