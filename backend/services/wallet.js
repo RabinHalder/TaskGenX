@@ -46,9 +46,36 @@ async function debit(userId, amount, type, note = "", ref = "", inc = {}) {
   return user;
 }
 
-// Fixed reward to the referrer, paid once per referred user.
+// Counts a completed referral for the referrer's level mission (once per referred user).
+// A referral is complete when the Settings rule is met: the friend joined, or got a first task approved.
+async function countReferral(user, trigger, settings) {
+  const r = (settings && settings.referral) || {};
+  if (!r.enabled || r.payOn !== trigger || !user.referredBy) return;
+
+  // Atomic: only the first caller counts it
+  const claimed = await User.findOneAndUpdate(
+    { _id: user._id, referralCounted: { $ne: true } },
+    { $set: { referralCounted: true } }
+  );
+  if (!claimed) return;
+
+  const referrer = await User.findOneAndUpdate(
+    { tgId: user.referredBy, isBanned: { $ne: true } },
+    { $inc: { levelReferrals: 1 } },
+    { new: true }
+  );
+  if (referrer) await syncLevel(referrer, settings);
+}
+
+// Handles a referral event: counts it for the level mission, then pays the fixed reward.
 // trigger is "join" or "first_task"; it must match the Settings choice.
 async function rewardReferral(user, trigger, settings) {
+  try {
+    await countReferral(user, trigger, settings);
+  } catch (e) {
+    console.error("Referral count failed:", e.message);
+  }
+
   const r = (settings && settings.referral) || {};
   const amt = round2(r.reward);
   if (!r.enabled || r.payOn !== trigger || !(amt > 0) || !user.referredBy) return null;
