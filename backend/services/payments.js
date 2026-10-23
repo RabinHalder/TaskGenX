@@ -46,12 +46,18 @@ function alertAdmins(key, text) {
   bot.notifyAdmins(text);
 }
 
-async function sumWithdraw(tgId, field, key) {
+// Money withdrawn today with one method (UPI and Wallet have separate daily limits)
+async function dayTotal(tgId, method, key) {
   const r = await Payment.aggregate([
-    { $match: { tgId, type: "withdraw", status: { $in: ACTIVE_STATUSES }, [field]: key } },
+    { $match: { tgId, type: "withdraw", method, status: { $in: ACTIVE_STATUSES }, dayKey: key } },
     { $group: { _id: null, total: { $sum: "$amount" } } },
   ]);
   return r[0] ? r[0].total : 0;
+}
+
+// How many withdrawals the user made this month (any method)
+function monthCount(tgId, key) {
+  return Payment.countDocuments({ tgId, type: "withdraw", status: { $in: ACTIVE_STATUSES }, monthKey: key });
 }
 
 /* ------------------------------ DEPOSIT ------------------------------ */
@@ -122,7 +128,6 @@ async function createDeposit(user, amount, settings) {
 }
 
 // Safe to call from the callback AND polling at the same time.
-// The UPI link is locked to the exact amount, so no amount comparison is needed.
 async function settleDeposit(orderId, status, info = {}) {
   const payment = await Payment.findOne({ orderId, type: "deposit" });
   if (!payment) return { ok: false, reason: "not_found" };
@@ -179,7 +184,6 @@ async function settleDeposit(orderId, status, info = {}) {
 }
 
 async function checkDeposit(payment) {
-  // The app checks every few seconds; do not call FINZO more than once per 8 seconds per order.
   if (payment.lastCheckedAt && Date.now() - new Date(payment.lastCheckedAt).getTime() < 8000) {
     return { ok: true, status: "pending", throttled: true };
   }
@@ -201,11 +205,7 @@ async function finalizeWithdraw(p) {
     { new: true }
   );
   if (!claimed) return null;
-  const user = await User.findByIdAndUpdate(
-    claimed.user,
-    { $inc: { totalWithdrawn: claimed.netAmount } },
-    { new: true }
-  );
+  const user = await User.findByIdAndUpdate(claimed.user, { $inc: { totalWithdrawn: claimed.netAmount } }, { new: true });
   bot.notifyUser(
     user,
     `Withdrawal successful! ₹${claimed.netAmount} was sent to your account.`,
@@ -216,12 +216,7 @@ async function finalizeWithdraw(p) {
   return claimed;
 }
 
-async function refundWithdraw(
-  p,
-  reason,
-  newStatus = "failed",
-  allowedFrom = ["created", "awaiting_approval", "processing"]
-) {
+async function refundWithdraw(p, reason, newStatus = "failed", allowedFrom = ["created", "awaiting_approval", "processing"]) {
   const claimed = await Payment.findOneAndUpdate(
     { _id: p._id, type: "withdraw", settled: false, refunded: false, status: { $in: allowedFrom } },
     { $set: { settled: true, refunded: true, status: newStatus, failureReason: reason || "" } },
@@ -231,18 +226,9 @@ async function refundWithdraw(
 
   let user;
   try {
-    user = await wallet.credit(
-      claimed.user,
-      claimed.amount,
-      "withdraw_refund",
-      `Refund: ${reason || newStatus}`,
-      claimed.orderId
-    );
+    user = await wallet.credit(claimed.user, claimed.amount, "withdraw_refund", `Refund: ${reason || newStatus}`, claimed.orderId);
   } catch (e) {
-    await Payment.updateOne(
-      { _id: claimed._id },
-      { $set: { settled: false, refunded: false, status: p.status } }
-    );
+    await Payment.updateOne({ _id: claimed._id }, { $set: { settled: false, refunded: false, status: p.status } });
     throw e;
   }
 
@@ -269,16 +255,9 @@ async function handlePayoutError(p, e) {
   console.error("Payout error:", p.orderId, e.code || "", e.message);
 
   if (HOLD_CODES.has(e.code)) {
-    // Not the user's fault: keep the money locked and wait for the admin.
     const held = await Payment.findOneAndUpdate(
       { _id: p._id, settled: false, status: "processing" },
-      {
-        $set: {
-          status: "awaiting_approval",
-          failureReason: "",
-          gatewayPayload: { code: e.code, message: e.message },
-        },
-      },
+      { $set: { status: "awaiting_approval", failureReason: "", gatewayPayload: { code: e.code, message: e.message } } },
       { new: true }
     );
     if (held) {
@@ -323,26 +302,12 @@ async function processPayout(paymentId) {
     const user = await User.findById(p.user);
     const r =
       p.method === "upi"
-        ? await finzo.payoutUpi({
-            orderId: fid,
-            amount: p.netAmount,
-            upi: p.destination,
-            name: beneficiaryName(user),
-          })
-        : await finzo.walletPay({
-            orderId: fid,
-            amount: p.netAmount,
-            wallet: p.destination,
-            remark: `Withdrawal ${p.orderId}`,
-          });
+        ? await finzo.payoutUpi({ orderId: fid, amount: p.netAmount, upi: p.destination, name: beneficiaryName(user) })
+        : await finzo.walletPay({ orderId: fid, amount: p.netAmount, wallet: p.destination, remark: `Withdrawal ${p.orderId}` });
 
-    await Payment.updateOne(
-      { _id: p._id },
-      { $set: { gatewayRef: r.ref || "", gatewayPayload: r.raw || null } }
-    );
+    await Payment.updateOne({ _id: p._id }, { $set: { gatewayRef: r.ref || "", gatewayPayload: r.raw || null } });
     if (r.status === "success") await finalizeWithdraw(p);
     else if (r.status === "failed") await refundWithdraw(p, "Payout failed");
-    // otherwise it stays "processing" until the callback or polling resolves it
   } catch (e) {
     await handlePayoutError(p, e);
   }
@@ -353,11 +318,14 @@ async function createWithdraw(user, amount, method, settings) {
   const w = settings.withdraw;
   if (!w.enabled) throw fail(400, "Withdrawals are currently disabled");
   if (method !== "upi" && method !== "finzo_wallet") throw fail(400, "Invalid withdraw method");
-  if (method === "upi" && !w.upiEnabled) throw fail(400, "UPI withdrawal is disabled");
-  if (method === "finzo_wallet" && !w.walletEnabled) throw fail(400, "Wallet withdrawal is disabled");
 
-  const destination =
-    method === "upi" ? user.withdrawDetails.upi : user.withdrawDetails.finzoWallet;
+  // UPI and FINZO Wallet have their own limits in Settings
+  const mc = method === "upi" ? w.upi : w.wallet;
+  if (!mc || !mc.enabled) {
+    throw fail(400, method === "upi" ? "UPI withdrawal is disabled" : "Wallet withdrawal is disabled");
+  }
+
+  const destination = method === "upi" ? user.withdrawDetails.upi : user.withdrawDetails.finzoWallet;
   if (!destination) throw fail(400, "Please save your withdraw details in Profile first");
   // FINZO wallets are identified by a 10-digit mobile number
   if (method === "finzo_wallet" && !/^\d{10}$/.test(destination)) {
@@ -366,13 +334,14 @@ async function createWithdraw(user, amount, method, settings) {
 
   amount = round2(amount);
   const lvl = (settings.levels || [])[(user.level || 1) - 1] ||
-    (settings.levels || [])[0] || { withdrawFeePercent: 0, monthlyWithdrawLimit: 0 };
+    (settings.levels || [])[0] || { withdrawFeePercent: 0, monthlyWithdrawals: 2 };
+  const monthlyMax = lvl.monthlyWithdrawals === undefined || lvl.monthlyWithdrawals === null ? 2 : lvl.monthlyWithdrawals;
 
   // The allowed range is the tighter of our Settings and FINZO's own limit for this method
   const feeRate = Math.min(0.99, Math.max(0, lvl.withdrawFeePercent) / 100);
   const lim = finzo.payoutLimits(method);
-  const lo = Math.max(Math.ceil(w.min), Math.ceil(lim.min / (1 - feeRate)));
-  const hi = Math.min(Math.floor(w.max), Math.floor(lim.max / (1 - feeRate)));
+  const lo = Math.max(Math.ceil(mc.min), Math.ceil(lim.min / (1 - feeRate)));
+  const hi = Math.min(Math.floor(mc.max), Math.floor(lim.max / (1 - feeRate)));
   if (!(amount > 0) || amount < lo || amount > hi) {
     throw fail(400, `Withdraw must be between ₹${lo} and ₹${hi}`);
   }
@@ -386,21 +355,13 @@ async function createWithdraw(user, amount, method, settings) {
   const tz = settings.app.timezone;
   const dk = dateKey(new Date(), tz);
   const mk = monthKey(new Date(), tz);
-  const [day, month] = await Promise.all([
-    sumWithdraw(user.tgId, "dayKey", dk),
-    sumWithdraw(user.tgId, "monthKey", mk),
-  ]);
-  if (day + amount > w.dailyLimit) {
-    throw fail(
-      400,
-      `Daily withdraw limit is ₹${w.dailyLimit}. Remaining today: ₹${Math.max(0, round2(w.dailyLimit - day))}`
-    );
+  const [day, used] = await Promise.all([dayTotal(user.tgId, method, dk), monthCount(user.tgId, mk)]);
+
+  if (used >= monthlyMax) {
+    throw fail(400, `Monthly withdrawal limit reached: ${monthlyMax} per month at your level`);
   }
-  if (month + amount > lvl.monthlyWithdrawLimit) {
-    throw fail(
-      400,
-      `Your monthly limit is ₹${lvl.monthlyWithdrawLimit}. Remaining this month: ₹${Math.max(0, round2(lvl.monthlyWithdrawLimit - month))}`
-    );
+  if (day + amount > mc.dailyLimit) {
+    throw fail(400, `Daily withdraw limit is ₹${mc.dailyLimit}. Remaining today: ₹${Math.max(0, round2(mc.dailyLimit - day))}`);
   }
 
   const fee = round2((amount * lvl.withdrawFeePercent) / 100);
