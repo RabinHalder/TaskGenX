@@ -15,7 +15,7 @@
       "ad.s.cWd": "Withdrawals / month",
       "ad.s.cId": "ID",
       "ad.s.cIcon": "Icon",
-      "ad.s.lvNote": "One line per level. A user needs both the task and the referral target to reach a level. \"Withdrawals / month\" is how many withdrawals a user can make each month. Level names are shown in English.",
+      "ad.s.lvNote": "One line per level. Tasks and Referrals are the mission a user must complete at THAT level (both) to move up. Example: Silver = 10 tasks and 5 referrals takes the user from Silver to Gold. Bronze can have a mission too. The last level has no mission. Withdrawals / month: how many withdrawals a user can make each month. Level names are shown in English.",
       "ad.s.addLevel": "Add level",
       "ad.s.catNote": "One line per category (English names). The ID cannot be changed later. Tasks in a removed category stay in the system but will not show under any category tab.",
       "ad.s.addCat": "Add category",
@@ -49,7 +49,7 @@
       "ad.s.cWd": "উইথড্র / মাস",
       "ad.s.cId": "আইডি",
       "ad.s.cIcon": "আইকন",
-      "ad.s.lvNote": "প্রতি লেভেল একটি লাইনে। কোনো লেভেলে পৌঁছাতে টাস্ক ও রেফারেল, দুটো লক্ষ্যই পূরণ করতে হয়। “উইথড্র / মাস” মানে একজন ইউজার প্রতি মাসে কতবার উইথড্র করতে পারবেন। লেভেলের নাম ইংরেজিতে দেখাবে।",
+      "ad.s.lvNote": "প্রতি লেভেল একটি লাইনে। Tasks ও Referrals হলো ওই লেভেলে থেকে ইউজারকে যা শেষ করতে হবে (দুটোই), তবেই পরের লেভেলে উঠবেন। যেমন: Silver = ১০ টাস্ক ও ৫ রেফারেল মানে Silver থেকে Gold-এ উঠতে এটুকু করতে হবে। Bronze-এও মিশন দেওয়া যায়। শেষ লেভেলের কোনো মিশন নেই। Withdrawals / month: একজন ইউজার প্রতি মাসে কতবার উইথড্র করতে পারবেন। লেভেলের নাম ইংরেজিতে দেখাবে।",
       "ad.s.addLevel": "লেভেল যোগ করুন",
       "ad.s.catNote": "প্রতি ক্যাটাগরি একটি লাইনে (ইংরেজি নাম)। আইডি পরে বদলানো যাবে না। মুছে ফেলা ক্যাটাগরির টাস্ক সিস্টেমে থাকবে, কিন্তু কোনো ক্যাটাগরি ট্যাবে দেখাবে না।",
       "ad.s.addCat": "ক্যাটাগরি যোগ করুন",
@@ -134,7 +134,7 @@
       fields: [
         ["referral.enabled", "switch", "Referral program enabled", "রেফারেল প্রোগ্রাম চালু"],
         ["referral.reward", "num", "Reward per referral (₹)", "প্রতি রেফারেলের পুরস্কার (₹)", "A fixed amount paid to the person who invited. One level only, no percentage.", "যিনি আমন্ত্রণ জানিয়েছেন তাঁকে নির্দিষ্ট অঙ্ক দেওয়া হয়। শুধু ১ লেভেল, কোনো শতাংশ নেই।"],
-        ["referral.payOn", "select", "Pay the reward", "পুরস্কার দেওয়া হবে", "\"After first approved task\" protects you from fake accounts.", "“প্রথম অনুমোদিত টাস্কের পর” বেছে নিলে নকল অ্যাকাউন্টের ঝুঁকি কমে।", [
+        ["referral.payOn", "select", "A referral counts and is rewarded", "রেফারেল গোনা ও পুরস্কার দেওয়া হবে", "This also decides when a referral counts for level missions. \"After first approved task\" protects you from fake accounts.", "লেভেল মিশনে রেফারেল কখন গোনা হবে তাও এটি ঠিক করে। “প্রথম অনুমোদিত টাস্কের পর” বেছে নিলে নকল অ্যাকাউন্টের ঝুঁকি কমে।", [
           ["first_task", "After the friend's first approved task", "বন্ধুর প্রথম অনুমোদিত টাস্কের পর"],
           ["join", "As soon as the friend joins", "বন্ধু যোগ দিলেই"],
         ]],
@@ -242,13 +242,15 @@
       else if (a === "lvAdd") {
         this.readLevels();
         if (this.W.levels.length >= 15) return;
-        const last = this.W.levels[this.W.levels.length - 1] || { minTasks: 0, minReferrals: 0, withdrawFeePercent: 5, monthlyWithdrawals: 2 };
+        const prev = this.W.levels[this.W.levels.length - 1] || { minTasks: 0, minReferrals: 0, withdrawFeePercent: 5, monthlyWithdrawals: 2 };
+        // The old last level now needs a mission to move users up to the new level
+        if (this.W.levels.length && !(Number(prev.minTasks) > 0) && !(Number(prev.minReferrals) > 0)) prev.minTasks = 20;
         this.W.levels.push({
           name: "New level",
-          minTasks: Number(last.minTasks) + 10,
-          minReferrals: Number(last.minReferrals) + 5,
-          withdrawFeePercent: last.withdrawFeePercent,
-          monthlyWithdrawals: last.monthlyWithdrawals,
+          minTasks: 0,
+          minReferrals: 0,
+          withdrawFeePercent: prev.withdrawFeePercent,
+          monthlyWithdrawals: prev.monthlyWithdrawals,
         });
         this.paintBody("levels");
       } else if (a === "lvDel") {
@@ -359,22 +361,25 @@
       return '<button class="icon-btn" style="width:30px;height:30px" data-act="' + act + '" data-i="' + i + '" aria-label="' + esc(t("common.remove")) + '">' + icon("trash", "sm") + "</button>";
     },
 
-    // One line per level
+    // One line per level: its mission (tasks + referrals), fee and withdrawals per month
     levelsHtml() {
       const L = this.W.levels;
       return (
         '<div class="note">' + icon("info") + "<div>" + esc(t("ad.s.lvNote")) + "</div></div>" +
         '<div class="lv-edit"><div class="lv-grid lv-h"><span>#</span><span>' + esc(t("ad.s.cName")) + "</span><span>" + esc(t("ad.s.cTasks")) + "</span><span>" +
         esc(t("ad.s.cRefs")) + "</span><span>" + esc(t("ad.s.cFee")) + "</span><span>" + esc(t("ad.s.cWd")) + "</span><span></span></div>" +
-        L.map((x, i) =>
-          '<div class="lv-grid" data-lv="' + i + '"><span class="lv-n">' + (i + 1) + "</span>" +
-          this.inp("name", x.name, 'maxlength="30"') +
-          this.inp("minTasks", i === 0 ? 0 : x.minTasks, 'inputmode="numeric"' + (i === 0 ? " disabled" : "")) +
-          this.inp("minReferrals", i === 0 ? 0 : x.minReferrals, 'inputmode="numeric"' + (i === 0 ? " disabled" : "")) +
-          this.inp("withdrawFeePercent", x.withdrawFeePercent, 'inputmode="decimal"') +
-          this.inp("monthlyWithdrawals", x.monthlyWithdrawals, 'inputmode="numeric"') +
-          (L.length > 1 ? this.delBtn("lvDel", i) : "<span></span>") + "</div>"
-        ).join("") + "</div>" +
+        L.map((x, i) => {
+          const last = i === L.length - 1; // the last level has no mission
+          return (
+            '<div class="lv-grid" data-lv="' + i + '"><span class="lv-n">' + (i + 1) + "</span>" +
+            this.inp("name", x.name, 'maxlength="30"') +
+            this.inp("minTasks", last ? 0 : x.minTasks, 'inputmode="numeric"' + (last ? " disabled" : "")) +
+            this.inp("minReferrals", last ? 0 : x.minReferrals, 'inputmode="numeric"' + (last ? " disabled" : "")) +
+            this.inp("withdrawFeePercent", x.withdrawFeePercent, 'inputmode="decimal"') +
+            this.inp("monthlyWithdrawals", x.monthlyWithdrawals, 'inputmode="numeric"') +
+            (L.length > 1 ? this.delBtn("lvDel", i) : "<span></span>") + "</div>"
+          );
+        }).join("") + "</div>" +
         (L.length < 15 ? '<button class="btn btn-ghost btn-block" data-act="lvAdd" style="margin-bottom:14px">' + icon("plus", "sm") + esc(t("ad.s.addLevel")) + "</button>" : "")
       );
     },
