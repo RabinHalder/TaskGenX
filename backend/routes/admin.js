@@ -393,9 +393,16 @@ function taskFields(b, settings, partial) {
   }
   if (!partial || has("link")) out.link = urlOrEmpty(b.link, "Task link");
   if (!partial || has("proofRequired")) out.proofRequired = b.proofRequired === undefined ? true : bool(b.proofRequired);
-  if (!partial || has("limitPerUser")) {
-    out.limitPerUser = num(b.limitPerUser === undefined ? 1 : b.limitPerUser, "Limit per user", { min: 1, max: 1000, int: true });
+
+  // Every task can be completed only once per user
+  out.limitPerUser = 1;
+
+  // Which level can do this task: 0 = all levels, 1 = first level (Bronze) ...
+  if (!partial || has("level")) {
+    const maxLevel = (settings.levels || []).length || 1;
+    out.level = num(b.level === undefined || b.level === "" ? 0 : b.level, "Level", { min: 0, max: maxLevel, int: true });
   }
+
   if (!partial || has("totalLimit")) {
     out.totalLimit = num(b.totalLimit === undefined || b.totalLimit === "" ? 0 : b.totalLimit, "Total limit", { min: 0, max: 10000000, int: true });
   }
@@ -436,7 +443,7 @@ router.get(
         reward: t.reward,
         link: t.link,
         proofRequired: t.proofRequired,
-        limitPerUser: t.limitPerUser,
+        level: t.level || 0,
         totalLimit: t.totalLimit,
         filled: t.filled,
         expiresAt: t.expiresAt,
@@ -465,7 +472,6 @@ router.put(
   wrap(async (req, res) => {
     oid(req.params.id, "Task not found");
     const fields = taskFields(req.body || {}, req.settings, true);
-    if (!Object.keys(fields).length) throw fail(400, "Nothing to update");
     const t = await Task.findByIdAndUpdate(req.params.id, { $set: fields }, { new: true });
     if (!t) throw fail(404, "Task not found");
     res.json({ ok: true });
