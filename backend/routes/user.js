@@ -30,6 +30,7 @@ function publicUser(u) {
     referralCount: u.referralCount,
     withdrawDetails: {
       upi: u.withdrawDetails.upi,
+      upiName: u.withdrawDetails.upiName,
       finzoWallet: u.withdrawDetails.finzoWallet,
     },
     language: u.language,
@@ -183,8 +184,6 @@ router.post(
   })
 );
 
-// Called after the Monetag ad finishes (SDK promise resolved on the client).
-// No server-side postback is wired up yet, so this trusts the client beyond the daily limit.
 router.post(
   "/watch-ad",
   wrap(async (req, res) => {
@@ -264,19 +263,24 @@ router.put(
   wrap(async (req, res) => {
     const b = req.body || {};
     const upi = String(b.upi || "").trim();
+    const upiName = String(b.upiName || "").trim().replace(/\s+/g, " ");
     const wal = String(b.finzoWallet || "").trim();
 
     if (upi && !/^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/.test(upi)) {
       throw fail(400, "Invalid UPI ID (example: name@bank)");
+    }
+    // English letters and spaces only — this is sent to FINZO as the payout beneficiary name.
+    if (upiName && !/^[A-Za-z][A-Za-z .]{1,49}$/.test(upiName)) {
+      throw fail(400, "Account holder name must be in English letters only (2-50 characters)");
     }
     if (wal && !/^\d{10}$/.test(wal)) {
       throw fail(400, "Invalid FINZO Wallet ID");
     }
     await User.updateOne(
       { _id: req.user._id },
-      { $set: { "withdrawDetails.upi": upi, "withdrawDetails.finzoWallet": wal } }
+      { $set: { "withdrawDetails.upi": upi, "withdrawDetails.upiName": upiName, "withdrawDetails.finzoWallet": wal } }
     );
-    res.json({ ok: true, withdrawDetails: { upi, finzoWallet: wal } });
+    res.json({ ok: true, withdrawDetails: { upi, upiName, finzoWallet: wal } });
   })
 );
 
