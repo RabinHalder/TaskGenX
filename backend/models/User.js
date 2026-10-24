@@ -26,7 +26,6 @@ const userSchema = new Schema(
     // Referral (single level)
     referredBy: { type: Number, default: null, index: true },
     referralRewarded: { type: Boolean, default: false },
-    // true once this user's referral was counted for the referrer's level mission
     referralCounted: { type: Boolean, default: false },
     referralCount: { type: Number, default: 0 },
 
@@ -35,6 +34,12 @@ const userSchema = new Schema(
       streak: { type: Number, default: 0 },
       lastDate: { type: String, default: "" },
       total: { type: Number, default: 0 },
+    },
+
+    // Daily "Watch & Earn" usage
+    ads: {
+      count: { type: Number, default: 0 },
+      lastDate: { type: String, default: "" },
     },
 
     // Saved withdraw details
