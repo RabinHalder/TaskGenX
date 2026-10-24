@@ -33,7 +33,6 @@ router.post(
   })
 );
 
-// Frontend polls this after the user returns from the payment page
 router.get(
   "/deposit/:orderId",
   wrap(async (req, res) => {
@@ -61,7 +60,13 @@ router.post(
     const b = req.body || {};
     const amount = Number(b.amount);
     if (!Number.isFinite(amount)) throw fail(400, "Enter a valid amount");
-    const p = await payments.createWithdraw(req.user, amount, String(b.method || ""), req.settings);
+    let p = await payments.createWithdraw(req.user, amount, String(b.method || ""), req.settings);
+    // If the payout already finished (success/failed) inside createWithdraw, fetch the latest row
+    // so the response carries the final status and failureReason instead of the initial "created".
+    if (p && ["created", "processing"].includes(p.status)) {
+      const fresh = await Payment.findById(p._id);
+      if (fresh) p = fresh;
+    }
     res.json(view(p));
   })
 );
