@@ -77,7 +77,6 @@
 
   const CAT_ICONS = ["users", "smartphone", "play", "clipboard", "grid", "star", "gift", "zap", "globe", "message-circle", "link", "trending-up"];
 
-  // field: [path, type, English label, Bangla label, English hint, Bangla hint, select options]
   const SECTIONS = [
     {
       id: "general", icon: "settings", en: "General", bn: "সাধারণ",
@@ -134,7 +133,7 @@
       fields: [
         ["referral.enabled", "switch", "Referral program enabled", "রেফারেল প্রোগ্রাম চালু"],
         ["referral.reward", "num", "Reward per referral (₹)", "প্রতি রেফারেলের পুরস্কার (₹)", "A fixed amount paid to the person who invited. One level only, no percentage.", "যিনি আমন্ত্রণ জানিয়েছেন তাঁকে নির্দিষ্ট অঙ্ক দেওয়া হয়। শুধু ১ লেভেল, কোনো শতাংশ নেই।"],
-        ["referral.payOn", "select", "A referral counts and is rewarded", "রেফারেল গোনা ও পুরস্কার দেওয়া হবে", "This also decides when a referral counts for level missions. \"After first approved task\" protects you from fake accounts.", "লেভেল মিশনে রেফারেল কখন গোনা হবে তাও এটি ঠিক করে। “প্রথম অনুমোদিত টাস্কের পর” বেছে নিলে নকল অ্যাকাউন্টের ঝুঁকি কমে।", [
+        ["referral.payOn", "select", "A referral counts and is rewarded", "রেফারেল গোনা ও পুরস্কার দেওয়া হবে", "This also decides when a referral counts for level missions.", "লেভেল মিশনে রেফারেল কখন গোনা হবে তাও এটি ঠিক করে।", [
           ["first_task", "After the friend's first approved task", "বন্ধুর প্রথম অনুমোদিত টাস্কের পর"],
           ["join", "As soon as the friend joins", "বন্ধু যোগ দিলেই"],
         ]],
@@ -143,6 +142,15 @@
     {
       id: "checkin", icon: "calendar", en: "Daily check-in", bn: "দৈনিক চেক-ইন",
       fields: [["checkin.enabled", "switch", "Check-in enabled", "চেক-ইন চালু"]],
+    },
+    {
+      id: "ads", icon: "play", en: "Watch & Earn (Ads)", bn: "Watch & Earn (বিজ্ঞাপন)",
+      fields: [
+        ["ads.enabled", "switch", "Watch & Earn enabled", "Watch & Earn চালু"],
+        ["ads.reward", "num", "Reward per ad (₹)", "প্রতি বিজ্ঞাপনে পুরস্কার (₹)"],
+        ["ads.dailyLimit", "num", "Ads per day per user", "প্রতি ইউজার দিনে কতবার"],
+        ["ads.watchSeconds", "num", "Watch time (seconds)", "দেখার সময় (সেকেন্ড)", "No real ad network is connected yet — this shows a timed countdown and then pays the reward.", "এখনো কোনো আসল বিজ্ঞাপন নেটওয়ার্ক যুক্ত নেই — এটি সময় গুনে পুরস্কার দেয়।"],
+      ],
     },
     {
       id: "other", icon: "sliders", en: "Proof and club", bn: "প্রুফ ও ক্লাব",
@@ -243,7 +251,6 @@
         this.readLevels();
         if (this.W.levels.length >= 15) return;
         const prev = this.W.levels[this.W.levels.length - 1] || { minTasks: 0, minReferrals: 0, withdrawFeePercent: 5, monthlyWithdrawals: 2 };
-        // The old last level now needs a mission to move users up to the new level
         if (this.W.levels.length && !(Number(prev.minTasks) > 0) && !(Number(prev.minReferrals) > 0)) prev.minTasks = 20;
         this.W.levels.push({
           name: "New level",
@@ -286,8 +293,6 @@
         this.paintBody("admins");
       }
     },
-
-    /* ----------------------------- RENDER ----------------------------- */
 
     render() {
       if (!this.root) return;
@@ -361,7 +366,6 @@
       return '<button class="icon-btn" style="width:30px;height:30px" data-act="' + act + '" data-i="' + i + '" aria-label="' + esc(t("common.remove")) + '">' + icon("trash", "sm") + "</button>";
     },
 
-    // One line per level: its mission (tasks + referrals), fee and withdrawals per month
     levelsHtml() {
       const L = this.W.levels;
       return (
@@ -369,7 +373,7 @@
         '<div class="lv-edit"><div class="lv-grid lv-h"><span>#</span><span>' + esc(t("ad.s.cName")) + "</span><span>" + esc(t("ad.s.cTasks")) + "</span><span>" +
         esc(t("ad.s.cRefs")) + "</span><span>" + esc(t("ad.s.cFee")) + "</span><span>" + esc(t("ad.s.cWd")) + "</span><span></span></div>" +
         L.map((x, i) => {
-          const last = i === L.length - 1; // the last level has no mission
+          const last = i === L.length - 1;
           return (
             '<div class="lv-grid" data-lv="' + i + '"><span class="lv-n">' + (i + 1) + "</span>" +
             this.inp("name", x.name, 'maxlength="30"') +
@@ -384,7 +388,6 @@
       );
     },
 
-    // One line per category
     catsHtml() {
       const C = this.W.categories;
       return (
@@ -430,8 +433,6 @@
       );
     },
 
-    /* ----------------------------- READ FORMS ----------------------------- */
-
     readLevels() {
       const box = this.bodyEl("levels");
       if (!box) return;
@@ -470,8 +471,6 @@
       });
       return out;
     },
-
-    /* ----------------------------- SAVE ----------------------------- */
 
     async save(id, btn) {
       const sec = this.secOf(id);
