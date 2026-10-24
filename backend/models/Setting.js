@@ -72,6 +72,12 @@ const defaultFaq = () => [
     aEn: "Share your invite link. You get a fixed reward for every friend who joins and completes their first approved task.",
     aBn: "আপনার আমন্ত্রণ লিংক শেয়ার করুন। যে বন্ধু যোগ দিয়ে প্রথম টাস্ক সম্পন্ন করবে, তার জন্য আপনি নির্দিষ্ট পুরস্কার পাবেন।",
   },
+  {
+    qEn: "How does Watch & Earn work?",
+    qBn: "Watch & Earn কীভাবে কাজ করে?",
+    aEn: "Tap Watch Ads on Home, watch the short ad, and get a small reward. You can do this a limited number of times per day.",
+    aBn: "হোমে Watch Ads-এ চাপুন, ছোট বিজ্ঞাপন দেখুন, এবং সামান্য পুরস্কার পান। দিনে একটি নির্দিষ্ট সংখ্যক বার এটি করা যায়।",
+  },
 ];
 
 const settingSchema = new Schema(
@@ -116,6 +122,14 @@ const settingSchema = new Schema(
     checkin: {
       enabled: B(true),
       rewards: { type: [Number], default: () => [1, 1, 2, 2, 3, 3, 5] },
+    },
+
+    // Simulated "Watch & Earn" feature on Home (no real ad network wired up yet).
+    ads: {
+      enabled: B(true),
+      reward: N(2),
+      dailyLimit: N(10),
+      watchSeconds: N(15),
     },
 
     proof: { maxSizeMB: N(5) },
