@@ -153,3 +153,42 @@ b, .balance-amount, .row-end, .stat b, .mini-stat b, .kpi b, .reward-pill { font
 select.input.sm { padding-right: 28px; background-position: right 8px center; }
 
 #admin-root .kpi, #admin-root .card { border-radius: 20px; }
+/* Watch & Earn card */
+.ads-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(76, 91, 255, .08), rgba(18, 181, 229, .06));
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.ads-ring {
+  --p: 0;
+  position: relative;
+  width: 54px;
+  height: 54px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent-1) calc(var(--p) * 1%), var(--surface-2) 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ads-ring::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+.ads-ring-ico { position: relative; z-index: 1; color: var(--accent-1); display: flex; }
+.ads-main { flex: 1; min-width: 0; }
+.ads-title { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
+.ads-sub { margin-top: 2px; font-size: 12px; color: var(--text-soft); line-height: 1.35; }
+.ads-left { margin-top: 6px; font-size: 11.5px; font-weight: 600; color: var(--accent-1); }
+.ads-card + .ads-btn,
+.ads-btn { margin-bottom: 14px; }
+.ads-btn-t { display: inline-flex; align-items: center; gap: 8px; }
