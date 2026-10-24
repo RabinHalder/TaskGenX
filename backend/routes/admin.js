@@ -394,10 +394,8 @@ function taskFields(b, settings, partial) {
   if (!partial || has("link")) out.link = urlOrEmpty(b.link, "Task link");
   if (!partial || has("proofRequired")) out.proofRequired = b.proofRequired === undefined ? true : bool(b.proofRequired);
 
-  // Every task can be completed only once per user
   out.limitPerUser = 1;
 
-  // Which level can do this task: 0 = all levels, 1 = first level (Bronze) ...
   if (!partial || has("level")) {
     const maxLevel = (settings.levels || []).length || 1;
     out.level = num(b.level === undefined || b.level === "" ? 0 : b.level, "Level", { min: 0, max: maxLevel, int: true });
@@ -638,7 +636,6 @@ router.post(
 
 /* ------------------------------ BROADCAST ------------------------------ */
 
-// Progress lives in memory (resets if the server restarts).
 const job = {
   running: false,
   total: 0,
@@ -730,7 +727,7 @@ async function runBroadcast(filter, en, bn, button) {
           done = true;
         }
       }
-      await sleep(50); // about 20 messages per second
+      await sleep(50);
     }
   } catch (e) {
     console.error("Broadcast error:", e.message);
@@ -853,7 +850,6 @@ function buildSettingsUpdate(b) {
     if (has(w, "approvalAbove")) {
       set["withdraw.approvalAbove"] = num(w.approvalAbove, "Approval amount", { min: 0, max: 100000000 });
     }
-    // UPI and FINZO Wallet limits are saved separately
     for (const m of ["upi", "wallet"]) {
       const x = w[m];
       if (!x || typeof x !== "object") continue;
@@ -891,6 +887,14 @@ function buildSettingsUpdate(b) {
     }
   }
 
+  if (b.ads && typeof b.ads === "object") {
+    const a = b.ads;
+    if (has(a, "enabled")) set["ads.enabled"] = bool(a.enabled);
+    if (has(a, "reward")) set["ads.reward"] = round2(num(a.reward, "Ad reward", { min: 0, max: 1000 }));
+    if (has(a, "dailyLimit")) set["ads.dailyLimit"] = num(a.dailyLimit, "Ads daily limit", { min: 1, max: 1000, int: true });
+    if (has(a, "watchSeconds")) set["ads.watchSeconds"] = num(a.watchSeconds, "Ad watch seconds", { min: 3, max: 120, int: true });
+  }
+
   if (has(b, "proof") && has(b.proof, "maxSizeMB")) {
     set["proof.maxSizeMB"] = num(b.proof.maxSizeMB, "Proof size (MB)", { min: 1, max: 10 });
   }
@@ -913,7 +917,6 @@ function buildSettingsUpdate(b) {
     set.levels = b.levels.map((L, i) => {
       L = L || {};
       const n = i + 1;
-      // Every level except the last has a mission: tasks AND referrals to complete at that level
       const isLast = i === count - 1;
       const minTasks = isLast ? 0 : num(L.minTasks, `Level ${n} tasks`, { min: 0, max: 1000000, int: true });
       const minReferrals = isLast ? 0 : num(L.minReferrals, `Level ${n} referrals`, { min: 0, max: 1000000, int: true });
