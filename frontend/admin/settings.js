@@ -144,12 +144,12 @@
       fields: [["checkin.enabled", "switch", "Check-in enabled", "চেক-ইন চালু"]],
     },
     {
-      id: "ads", icon: "play", en: "Watch & Earn (Ads)", bn: "Watch & Earn (বিজ্ঞাপন)",
+      id: "ads", icon: "play", en: "Watch & Earn (Monetag)", bn: "Watch & Earn (Monetag)",
       fields: [
         ["ads.enabled", "switch", "Watch & Earn enabled", "Watch & Earn চালু"],
+        ["ads.zoneId", "text", "Monetag Zone ID", "Monetag Zone ID", "From your Monetag dashboard (Rewarded Interstitial zone). Numbers only.", "Monetag ড্যাশবোর্ড থেকে (Rewarded Interstitial জোন)। শুধু সংখ্যা।"],
         ["ads.reward", "num", "Reward per ad (₹)", "প্রতি বিজ্ঞাপনে পুরস্কার (₹)"],
         ["ads.dailyLimit", "num", "Ads per day per user", "প্রতি ইউজার দিনে কতবার"],
-        ["ads.watchSeconds", "num", "Watch time (seconds)", "দেখার সময় (সেকেন্ড)", "No real ad network is connected yet — this shows a timed countdown and then pays the reward.", "এখনো কোনো আসল বিজ্ঞাপন নেটওয়ার্ক যুক্ত নেই — এটি সময় গুনে পুরস্কার দেয়।"],
       ],
     },
     {
