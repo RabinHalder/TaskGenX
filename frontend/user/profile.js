@@ -13,7 +13,7 @@
       "pf.statEarned": "Earned",
       "pf.statRefs": "Referrals",
       "pf.statWithdrawn": "Withdrawn",
-      "pf.lv.pill": "{name} · Level {n}",
+      "pf.lv.pill": "{name}",
       "pf.lv.of": "Level {n} of {total}",
       "pf.lv.mission": "Mission to reach {name}",
       "pf.lv.tasks": "Tasks completed",
@@ -80,7 +80,7 @@
       "pf.statEarned": "আয়",
       "pf.statRefs": "রেফারেল",
       "pf.statWithdrawn": "উইথড্র",
-      "pf.lv.pill": "{name} · লেভেল {n}",
+      "pf.lv.pill": "{name}",
       "pf.lv.of": "{total}টির মধ্যে লেভেল {n}",
       "pf.lv.mission": "{name}-এ পৌঁছানোর মিশন",
       "pf.lv.tasks": "সম্পন্ন টাস্ক",
@@ -158,7 +158,6 @@
   const CUSTOM_KEYS = ["accent", "btnStyle", "cardStyle"];
   const DEFAULT_LOOK = { accent: "", btnStyle: "round", cardStyle: "glass" };
 
-  // Short money for the stats strip: 12.3k, 1.2L
   function compact(n) {
     n = Number(n) || 0;
     const f = (v, s) => "₹" + v.toFixed(1).replace(/\.0$/, "") + s;
@@ -268,7 +267,6 @@
       const levels = me.config.levels || [];
       const used = me.stats.withdrawalsThisMonth || 0;
 
-      // Progress of the mission at the current level (tasks AND referrals)
       let next;
       if (lv.next && lv.progress) {
         const p = lv.progress;
@@ -289,7 +287,6 @@
         next = '<div class="card-sub">' + esc(t("pf.lv.max")) + "</div>";
       }
 
-      // One line per level: its mission (tasks, referrals), withdraw fee, withdrawals per month
       const dash = (v) => (v > 0 ? UI.num(v) : "–");
       const rows = levels
         .map((L, i) => {
@@ -349,7 +346,7 @@
         '<span class="av-wrap pf-av ' + (me.isAdmin ? "admin" : "") + '" data-admin-toggle>' + UI.avatar({ name, photoUrl: u.photoUrl }, "avatar-lg tap") + "</span>" +
         '<div class="profile-name">' + esc(name) + "</div>" +
         '<div class="card-sub">' + (u.username ? "@" + esc(u.username) + " · " : "") + esc(t("pf.id", { id: u.tgId })) + "</div>" +
-        (lv.current ? '<div><span class="pf-pill">' + icon(lv.level >= 5 ? "crown" : "award", "sm") + esc(t("pf.lv.pill", { name: lv.current.name, n: lv.level })) + "</span></div>" : "") +
+        (lv.current ? '<div><span class="pf-pill">' + icon(lv.level >= 5 ? "crown" : "award", "sm") + esc(t("pf.lv.pill", { name: lv.current.name })) + "</span></div>" : "") +
         '<div class="card-sub" style="margin-top:10px">' + esc(t("pf.since", { date: UI.date(u.createdAt) })) + "</div></div>" +
 
         '<div class="pf-stats">' +
@@ -531,7 +528,6 @@
     },
   };
 
-  // Saves one preference. The screen updates at once and rolls back if the server refuses.
   async function setPref(key, value) {
     const prev = JSON.parse(JSON.stringify(App.me.user));
     const u = App.me.user;
@@ -558,7 +554,6 @@
     }
   }
 
-  // Puts accent color, button style and card style back to the defaults
   async function resetLook() {
     const prev = JSON.parse(JSON.stringify(App.me.user));
     App.me.user.customize = { ...DEFAULT_LOOK };
