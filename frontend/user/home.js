@@ -32,6 +32,15 @@
       "home.ci.ok": "Checked in! You got {amount}",
       "home.ci.okFree": "Checked in! Day {n} streak",
 
+      "home.ads.title": "Watch & Earn",
+      "home.ads.sub": "Watch a short ad and get a quick reward.",
+      "home.ads.left": "{used}/{limit} watched today",
+      "home.ads.btn": "Watch Ads · {amount}",
+      "home.ads.done": "Today's limit reached",
+      "home.ads.watching": "Watching ad…",
+      "home.ads.wait": "Please wait {n}s",
+      "home.ads.ok": "You earned {amount}!",
+
       "mn.balance": "Available balance",
       "mn.done": "Done",
 
@@ -115,6 +124,15 @@
       "home.ci.ok": "চেক-ইন সফল! আপনি {amount} পেয়েছেন",
       "home.ci.okFree": "চেক-ইন সফল! {n} দিনের স্ট্রিক",
 
+      "home.ads.title": "Watch & Earn",
+      "home.ads.sub": "ছোট একটি বিজ্ঞাপন দেখে দ্রুত পুরস্কার নিন।",
+      "home.ads.left": "আজ {used}/{limit}টি দেখা হয়েছে",
+      "home.ads.btn": "বিজ্ঞাপন দেখুন · {amount}",
+      "home.ads.done": "আজকের সীমা শেষ",
+      "home.ads.watching": "বিজ্ঞাপন চলছে…",
+      "home.ads.wait": "{n} সেকেন্ড অপেক্ষা করুন",
+      "home.ads.ok": "আপনি {amount} পেয়েছেন!",
+
       "mn.balance": "উপলব্ধ ব্যালেন্স",
       "mn.done": "সম্পন্ন",
 
@@ -175,9 +193,6 @@
     }
   );
 
-  /* ----------------------------- helpers ----------------------------- */
-
-  // rahul@oksbi -> ra***@oksbi ; 9876543210 -> *******210
   function maskDest(v) {
     v = String(v || "");
     if (!v) return "";
@@ -197,7 +212,6 @@
 
   const info = (ico, text) => '<div class="mn-info">' + icon(ico, "sm") + "<span>" + esc(text) + "</span></div>";
 
-  // Result screen: tone is ok | wait | bad. spin shows a rotating ring instead of a fixed icon.
   function resultHtml(o) {
     const top = o.spin
       ? '<div class="mn-ring"><i class="ring"></i><span class="mn-ring-ico">' + icon(o.ico, "lg") + "</span></div>"
@@ -242,6 +256,7 @@
       if (a === "deposit") return this.openDeposit();
       if (a === "withdraw") return this.openWithdraw();
       if (a === "checkin") return this.checkin(el);
+      if (a === "watchAd") return this.watchAd(el);
       if (a === "support") return UI.openLink(App.me.config.app.supportLink);
     },
 
@@ -315,9 +330,9 @@
         '<button class="btn btn-light" data-act="withdraw">' + icon("arrow-up-circle", "sm") + esc(t("home.withdraw")) + "</button>" +
         "</div></div>" +
 
+        (cfg.ads && cfg.ads.enabled ? this.adsHtml(me) : "") +
         (cfg.checkin.enabled ? this.checkinHtml(me) : "") +
 
-        // Live activity sits at the bottom of the page
         '<div id="home-live" class="' + (this.feed.length ? "" : "hidden") + '">' +
         '<div class="section-head"><div class="section-title">' + esc(t("home.liveTitle")) + "</div></div>" +
         '<div class="ticker" id="home-ticker">' + this.tickerInner() + "</div></div>";
@@ -332,6 +347,21 @@
         }
       }
       this.prev = u.balance;
+    },
+
+    adsHtml(me) {
+      const a = me.config.ads;
+      const used = me.stats.adsWatchedToday || 0;
+      const done = used >= a.dailyLimit;
+      return (
+        '<div class="card">' +
+        '<div class="flex between" style="margin-bottom:12px"><div><div class="card-title">' + esc(t("home.ads.title")) + "</div>" +
+        '<div class="card-sub">' + esc(t("home.ads.sub")) + "</div></div>" +
+        '<div class="row-ico">' + icon("play") + "</div></div>" +
+        '<div class="card-sub" style="margin-bottom:10px">' + esc(t("home.ads.left", { used, limit: a.dailyLimit })) + "</div>" +
+        '<button class="btn btn-primary btn-block" data-act="watchAd" ' + (done ? "disabled" : "") + ">" +
+        icon(done ? "check-circle" : "play", "sm") + esc(done ? t("home.ads.done") : t("home.ads.btn", { amount: money(a.reward) })) + "</button></div>"
+      );
     },
 
     checkinHtml(me) {
@@ -393,6 +423,35 @@
         "success"
       );
       App.refreshMe({ silent: true });
+    },
+
+    // Simulated ad: shows a countdown (no real ad network wired up yet), then pays the reward.
+    async watchAd(btn) {
+      const secs = (App.me.config.ads && App.me.config.ads.watchSeconds) || 15;
+      btn.disabled = true;
+      btn.classList.add("loading");
+      const original = btn.innerHTML;
+      let left = secs;
+      const timer = setInterval(() => {
+        left -= 1;
+        if (left > 0) btn.querySelector("span") && (btn.querySelector("span").textContent = t("home.ads.wait", { n: left }));
+      }, 1000);
+      btn.innerHTML = icon("play", "sm") + '<span>' + esc(t("home.ads.watching")) + "</span>";
+
+      try {
+        await UI.sleep(secs * 1000);
+        clearInterval(timer);
+        const r = await API.post("/user/watch-ad");
+        UI.confetti();
+        UI.toast(t("home.ads.ok", { amount: money(r.reward) }), "success");
+        App.refreshMe({ silent: true });
+      } catch (e) {
+        clearInterval(timer);
+        UI.handleError(e);
+        btn.disabled = false;
+        btn.classList.remove("loading");
+        btn.innerHTML = original;
+      }
     },
 
     /* ----------------------------- DEPOSIT ----------------------------- */
@@ -461,7 +520,6 @@
             };
           }
 
-          // Returns true when the payment reached a final state.
           async function check() {
             const r = await API.get("/wallet/deposit/" + encodeURIComponent(order));
             if (r.status === "success") {
@@ -547,7 +605,6 @@
       const used = me.stats.withdrawalsThisMonth || 0;
       const blocked = used >= monthly;
       let method = methods[0];
-      // UPI and FINZO Wallet have separate limits
       const mc = () => (method === "upi" ? cfg.upi : cfg.wallet);
       const detail = (m) => {
         const d = App.me.user.withdrawDetails;
