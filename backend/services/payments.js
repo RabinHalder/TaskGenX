@@ -46,7 +46,6 @@ function alertAdmins(key, text) {
   bot.notifyAdmins(text);
 }
 
-// Money withdrawn today with one method (UPI and Wallet have separate daily limits)
 async function dayTotal(tgId, method, key) {
   const r = await Payment.aggregate([
     { $match: { tgId, type: "withdraw", method, status: { $in: ACTIVE_STATUSES }, dayKey: key } },
@@ -55,7 +54,6 @@ async function dayTotal(tgId, method, key) {
   return r[0] ? r[0].total : 0;
 }
 
-// How many withdrawals the user made this month (any method)
 function monthCount(tgId, key) {
   return Payment.countDocuments({ tgId, type: "withdraw", status: { $in: ACTIVE_STATUSES }, monthKey: key });
 }
@@ -70,7 +68,6 @@ async function createDeposit(user, amount, settings) {
   const lim = finzo.depositLimits();
   const lo = Math.max(Math.ceil(s.min), lim.min);
   const hi = Math.min(Math.floor(s.max), lim.max);
-  // FINZO UPI payments accept whole rupees only
   if (!Number.isInteger(amount) || amount <= 0) throw fail(400, "Enter a valid amount");
   if (amount < lo || amount > hi) throw fail(400, `Deposit must be between ₹${lo} and ₹${hi}`);
 
@@ -127,7 +124,6 @@ async function createDeposit(user, amount, settings) {
   return payment;
 }
 
-// Safe to call from the callback AND polling at the same time.
 async function settleDeposit(orderId, status, info = {}) {
   const payment = await Payment.findOne({ orderId, type: "deposit" });
   if (!payment) return { ok: false, reason: "not_found" };
@@ -243,12 +239,20 @@ async function refundWithdraw(p, reason, newStatus = "failed", allowedFrom = ["c
   return claimed;
 }
 
+// Uses the saved "account holder name" (exact bank/UPI name) when the user provided one.
+// Otherwise falls back to their Telegram name with non-English characters stripped,
+// since FINZO's payout beneficiary name field expects plain English text.
 function beneficiaryName(user) {
-  const clean = String(fullName(user))
-    .replace(/[^\p{L}\p{N} .'-]/gu, "")
+  const saved = String((user.withdrawDetails && user.withdrawDetails.upiName) || "").trim();
+  if (saved) return saved.slice(0, 50);
+
+  const ascii = String(fullName(user))
+    .replace(/[^\x20-\x7E]/g, "") // drop anything outside printable ASCII (keeps non-English names from silently failing)
+    .replace(/[^A-Za-z .'-]/g, "")
+    .replace(/\s+/g, " ")
     .trim()
     .slice(0, 50);
-  return clean || "Customer";
+  return ascii || "Customer";
 }
 
 async function handlePayoutError(p, e) {
@@ -280,6 +284,12 @@ async function handlePayoutError(p, e) {
 
   if (e.definite) {
     await refundWithdraw(p, friendlyReason(e));
+    // Let the admin see the exact gateway reason — otherwise "withdraw not working" is impossible to debug.
+    alertAdmins(
+      "finzo-refund-" + p.orderId,
+      `A withdrawal (<code>${escapeHtml(p.orderId)}</code>, ₹${p.amount}, ${p.method}) was refunded.\n` +
+        `Reason from FINZO: <code>${escapeHtml(e.code || "")}</code> — ${escapeHtml(e.message || "")}`
+    );
     return;
   }
   // Uncertain result: stays "processing". The background check resolves it.
@@ -293,7 +303,6 @@ async function processPayout(paymentId) {
   );
   if (!p) return null;
 
-  // Every attempt gets its own Unique-Order-ID, so an approved retry is never a "duplicate".
   const fid = p.attempts <= 1 ? p.orderId : `${p.orderId}-${p.attempts}`;
   await Payment.updateOne({ _id: p._id }, { $set: { finzoOrderId: fid } });
   p.finzoOrderId = fid;
@@ -307,7 +316,13 @@ async function processPayout(paymentId) {
 
     await Payment.updateOne({ _id: p._id }, { $set: { gatewayRef: r.ref || "", gatewayPayload: r.raw || null } });
     if (r.status === "success") await finalizeWithdraw(p);
-    else if (r.status === "failed") await refundWithdraw(p, "Payout failed");
+    else if (r.status === "failed") {
+      await refundWithdraw(p, "Payout failed");
+      alertAdmins(
+        "finzo-refund-" + p.orderId,
+        `A withdrawal (<code>${escapeHtml(p.orderId)}</code>, ₹${p.amount}, ${p.method}) failed at FINZO and was refunded.`
+      );
+    }
   } catch (e) {
     await handlePayoutError(p, e);
   }
@@ -319,7 +334,6 @@ async function createWithdraw(user, amount, method, settings) {
   if (!w.enabled) throw fail(400, "Withdrawals are currently disabled");
   if (method !== "upi" && method !== "finzo_wallet") throw fail(400, "Invalid withdraw method");
 
-  // UPI and FINZO Wallet have their own limits in Settings
   const mc = method === "upi" ? w.upi : w.wallet;
   if (!mc || !mc.enabled) {
     throw fail(400, method === "upi" ? "UPI withdrawal is disabled" : "Wallet withdrawal is disabled");
@@ -327,7 +341,6 @@ async function createWithdraw(user, amount, method, settings) {
 
   const destination = method === "upi" ? user.withdrawDetails.upi : user.withdrawDetails.finzoWallet;
   if (!destination) throw fail(400, "Please save your withdraw details in Profile first");
-  // FINZO wallets are identified by a 10-digit mobile number
   if (method === "finzo_wallet" && !/^\d{10}$/.test(destination)) {
     throw fail(400, "Invalid FINZO Wallet ID");
   }
@@ -337,7 +350,6 @@ async function createWithdraw(user, amount, method, settings) {
     (settings.levels || [])[0] || { withdrawFeePercent: 0, monthlyWithdrawals: 2 };
   const monthlyMax = lvl.monthlyWithdrawals === undefined || lvl.monthlyWithdrawals === null ? 2 : lvl.monthlyWithdrawals;
 
-  // The allowed range is the tighter of our Settings and FINZO's own limit for this method
   const feeRate = Math.min(0.99, Math.max(0, lvl.withdrawFeePercent) / 100);
   const lim = finzo.payoutLimits(method);
   const lo = Math.max(Math.ceil(mc.min), Math.ceil(lim.min / (1 - feeRate)));
@@ -441,7 +453,6 @@ async function checkWithdraw(p) {
     r = await finzo.checkPayout(p.finzoOrderId || p.orderId, p.method);
   } catch (e) {
     if (e.orderNotFound) {
-      // FINZO has no such order. After 10 minutes we are sure it was never created, so refund.
       const started = new Date(p.processingAt || p.createdAt).getTime();
       if (Date.now() - started > 10 * 60 * 1000) {
         await refundWithdraw(p, "Payout was not created", "failed", ["processing"]);
@@ -456,7 +467,6 @@ async function checkWithdraw(p) {
 
 /* ------------------------------- POLLING ------------------------------- */
 
-// Fallback for missed callbacks. Kept gentle: FINZO allows 120 requests per minute.
 async function pollPending() {
   const now = Date.now();
   const sixHours = new Date(now - 6 * 60 * 60 * 1000);
