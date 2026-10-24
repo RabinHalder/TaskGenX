@@ -39,7 +39,6 @@
       "home.ads.done": "Today's limit reached",
       "home.ads.loading": "Loading ad…",
       "home.ads.ok": "You earned {amount}!",
-      "home.ads.skipped": "Ad closed early — no reward this time.",
       "home.ads.unavailable": "No ad is available right now. Try again in a bit.",
       "home.ads.saveFail": "The ad finished, but saving your reward failed. Please try again.",
 
@@ -133,7 +132,6 @@
       "home.ads.done": "আজকের সীমা শেষ",
       "home.ads.loading": "বিজ্ঞাপন লোড হচ্ছে…",
       "home.ads.ok": "আপনি {amount} পেয়েছেন!",
-      "home.ads.skipped": "বিজ্ঞাপন আগেই বন্ধ হয়েছে — এবার পুরস্কার পাননি।",
       "home.ads.unavailable": "এখন কোনো বিজ্ঞাপন পাওয়া যাচ্ছে না। একটু পর আবার চেষ্টা করুন।",
       "home.ads.saveFail": "বিজ্ঞাপন শেষ হয়েছে, কিন্তু পুরস্কার সেভ করা যায়নি। আবার চেষ্টা করুন।",
 
@@ -234,8 +232,6 @@
   /* ----------------------------- Monetag loader ----------------------------- */
 
   const monetagCache = {};
-  // Injects the Monetag SDK script tag for this zone (if not already loaded) and
-  // returns the zone's show function, e.g. window.show_12111755.
   function loadMonetag(zoneId) {
     const fnName = "show_" + zoneId;
     if (monetagCache[zoneId]) return monetagCache[zoneId];
@@ -246,7 +242,6 @@
       s.setAttribute("data-zone", zoneId);
       s.setAttribute("data-sdk", fnName);
       s.onload = () => {
-        // The SDK defines the function synchronously once the script executes
         if (typeof window[fnName] === "function") resolve(window[fnName]);
         else reject(new Error("ad sdk did not initialize"));
       };
@@ -277,7 +272,7 @@
       this.timer = setInterval(() => this.loadFeed(), 45000);
       const cfg = App.me && App.me.config;
       if (cfg && cfg.ads && cfg.ads.enabled && cfg.ads.zoneId) {
-        loadMonetag(cfg.ads.zoneId).catch(() => {}); // warm up quietly
+        loadMonetag(cfg.ads.zoneId).catch(() => {});
       }
     },
 
@@ -494,13 +489,16 @@
         const r = await API.post("/user/watch-ad");
         UI.confetti();
         UI.toast(t("home.ads.ok", { amount: money(r.reward) }), "success");
-        await App.refreshMe({ silent: true });
       } catch (e) {
         UI.toast(t("home.ads.saveFail"), "error");
         restore();
         return;
       }
-      // render() (from refreshMe) redraws the button with the updated count
+
+      // Always clear the busy flag once the flow finishes successfully — this was the
+      // bug that made the button stop responding after the first ad.
+      this.adBusy = false;
+      await App.refreshMe({ silent: true }); // redraws the button with the updated count
     },
 
     /* ----------------------------- DEPOSIT ----------------------------- */
