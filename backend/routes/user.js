@@ -75,6 +75,7 @@ function publicConfig(s) {
       payOn: s.referral.payOn,
     },
     checkin: { enabled: s.checkin.enabled, rewards: s.checkin.rewards },
+    ads: { enabled: s.ads.enabled, reward: s.ads.reward, dailyLimit: s.ads.dailyLimit, watchSeconds: s.ads.watchSeconds },
     club: { enabled: s.club.enabled },
     proof: { maxSizeMB: s.proof.maxSizeMB },
     levels: (s.levels || []).map(cleanLevel),
@@ -87,6 +88,10 @@ function effectiveStreak(user, tz) {
   const last = user.checkin.lastDate;
   if (last === dateKey(new Date(), tz) || last === yesterdayKey(tz)) return user.checkin.streak;
   return 0;
+}
+
+function adsToday(user, tz) {
+  return user.ads.lastDate === dateKey(new Date(), tz) ? user.ads.count : 0;
 }
 
 router.get(
@@ -127,7 +132,12 @@ router.get(
         nextReward: rewards[streak % rewards.length],
         rewards,
       },
-      stats: { pendingProofs, pendingWithdraws, withdrawalsThisMonth },
+      stats: {
+        pendingProofs,
+        pendingWithdraws,
+        withdrawalsThisMonth,
+        adsWatchedToday: adsToday(user, tz),
+      },
       referral: { code: String(user.tgId), link: referralLink(settings, user.tgId) },
       config: publicConfig(settings),
     });
@@ -164,6 +174,42 @@ router.post(
       balance = u2.balance;
     }
     res.json({ streak, reward, balance });
+  })
+);
+
+// Simulated "Watch & Earn": the app shows a countdown for ads.watchSeconds, then calls this.
+// There is no real ad network plugged in yet — this just enforces the daily limit and pays the reward.
+router.post(
+  "/watch-ad",
+  wrap(async (req, res) => {
+    const { user, settings } = req;
+    const a = settings.ads;
+    if (!a.enabled) throw fail(400, "Watch & Earn is disabled");
+
+    const tz = settings.app.timezone;
+    const today = dateKey(new Date(), tz);
+    const todayCount = user.ads.lastDate === today ? user.ads.count : 0;
+    if (todayCount >= a.dailyLimit) throw fail(400, "You have reached today's limit. Come back tomorrow.");
+
+    const filter =
+      user.ads.lastDate === today
+        ? { _id: user._id, "ads.lastDate": today, "ads.count": { $lt: a.dailyLimit } }
+        : { _id: user._id, $or: [{ "ads.lastDate": { $ne: today } }, { "ads.lastDate": { $exists: false } }] };
+    const update =
+      user.ads.lastDate === today
+        ? { $inc: { "ads.count": 1 } }
+        : { $set: { "ads.lastDate": today, "ads.count": 1 } };
+
+    const claimed = await User.findOneAndUpdate(filter, update, { new: true });
+    if (!claimed) throw fail(400, "You have reached today's limit. Come back tomorrow.");
+
+    let balance = claimed.balance;
+    const reward = round2(a.reward);
+    if (reward > 0) {
+      const u2 = await wallet.credit(claimed._id, reward, "bonus", "Watch & Earn", "", { totalEarned: reward });
+      balance = u2.balance;
+    }
+    res.json({ reward, balance, todayCount: claimed.ads.count, dailyLimit: a.dailyLimit });
   })
 );
 
