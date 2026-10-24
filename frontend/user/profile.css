@@ -12,7 +12,7 @@
   box-shadow: 0 1px 2px rgba(14, 21, 48, .05), 0 18px 40px -20px rgba(14, 21, 48, .35);
 }
 .pf-cover {
-  height: 100px;
+  height: 104px;
   margin: 0 -16px;
   position: relative;
   overflow: hidden;
@@ -42,6 +42,8 @@
 .pf-hero .pf-av .avatar { width: 88px; height: 88px; font-size: 32px; box-shadow: 0 0 0 5px var(--surface), 0 14px 28px -10px rgba(14, 21, 48, .45); }
 .pf-hero .profile-name { margin-top: 12px; font-size: 19px; font-weight: 800; letter-spacing: -.3px; }
 .pf-pill {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -54,6 +56,21 @@
   color: #fff;
   background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
   box-shadow: 0 10px 20px -10px rgba(76, 91, 255, .9);
+}
+.pf-pill::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 40%;
+  height: 200%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, .5), transparent);
+  transform: rotate(20deg);
+  animation: pfShine 3.2s ease-in-out infinite;
+}
+@keyframes pfShine {
+  0% { left: -60%; }
+  45%, 100% { left: 140%; }
 }
 
 .pf-stats {
@@ -72,10 +89,21 @@
 .pf-stat span { display: block; margin-top: 3px; font-size: 10.5px; color: var(--text-soft); line-height: 1.25; }
 
 .pf-sec { margin-bottom: 14px; }
-.pf-sec .card-title { display: flex; align-items: center; gap: 8px; }
-.pf-sec .card-title svg { color: var(--accent-1); }
-.pf-label { margin: 14px 0 8px; font-size: 12.5px; font-weight: 600; color: var(--text-soft); }
-.pf-label:first-of-type { margin-top: 12px; }
+.pf-sec .card-title { display: flex; align-items: center; gap: 9px; }
+.pf-sec .card-title svg {
+  color: var(--accent-1);
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  box-sizing: border-box;
+}
+.pf-label { margin: 16px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: var(--text-soft); }
+.pf-label:first-of-type { margin-top: 14px; }
+.pf-sub-head { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px; font-size: 13px; font-weight: 700; color: var(--text); }
+.pf-sub-head svg { color: var(--accent-1); }
+.pf-divider { height: 1px; margin: 18px 0 14px; background: linear-gradient(90deg, transparent, var(--border), transparent); }
 
 .seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 
