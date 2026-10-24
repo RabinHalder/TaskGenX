@@ -6,8 +6,6 @@ const N = (def) => ({ type: Number, default: def });
 const B = (def) => ({ type: Boolean, default: def });
 const limits = (min, max, daily) => ({ enabled: B(true), min: N(min), max: N(max), dailyLimit: N(daily) });
 
-// Each level has a mission: minTasks and minReferrals are what a user must complete
-// AT THIS LEVEL (both) to move up to the next level. The last level has no mission.
 const levelSchema = new Schema(
   {
     name: String,
@@ -75,8 +73,8 @@ const defaultFaq = () => [
   {
     qEn: "How does Watch & Earn work?",
     qBn: "Watch & Earn কীভাবে কাজ করে?",
-    aEn: "Tap Watch Ads on Home, watch the short ad, and get a small reward. You can do this a limited number of times per day.",
-    aBn: "হোমে Watch Ads-এ চাপুন, ছোট বিজ্ঞাপন দেখুন, এবং সামান্য পুরস্কার পান। দিনে একটি নির্দিষ্ট সংখ্যক বার এটি করা যায়।",
+    aEn: "Tap Watch Ads on Home, watch the short ad fully, and get a small reward. You can do this a limited number of times per day.",
+    aBn: "হোমে Watch Ads-এ চাপুন, ছোট বিজ্ঞাপনটি সম্পূর্ণ দেখুন, এবং সামান্য পুরস্কার পান। দিনে একটি নির্দিষ্ট সংখ্যক বার এটি করা যায়।",
   },
 ];
 
@@ -124,12 +122,14 @@ const settingSchema = new Schema(
       rewards: { type: [Number], default: () => [1, 1, 2, 2, 3, 3, 5] },
     },
 
-    // Simulated "Watch & Earn" feature on Home (no real ad network wired up yet).
+    // Watch & Earn, powered by Monetag Rewarded Interstitial.
+    // zoneId comes from the Monetag dashboard (Zone ID in the sdk.js snippet).
     ads: {
       enabled: B(true),
+      provider: T("monetag"),
+      zoneId: T("12111755"),
       reward: N(2),
       dailyLimit: N(10),
-      watchSeconds: N(15),
     },
 
     proof: { maxSizeMB: N(5) },
