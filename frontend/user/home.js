@@ -33,13 +33,15 @@
       "home.ci.okFree": "Checked in! Day {n} streak",
 
       "home.ads.title": "Watch & Earn",
-      "home.ads.sub": "Watch a short ad and get a quick reward.",
+      "home.ads.sub": "Watch a short ad fully and get a quick reward.",
       "home.ads.left": "{used}/{limit} watched today",
       "home.ads.btn": "Watch Ads · {amount}",
       "home.ads.done": "Today's limit reached",
-      "home.ads.watching": "Watching ad…",
-      "home.ads.wait": "Please wait {n}s",
+      "home.ads.loading": "Loading ad…",
       "home.ads.ok": "You earned {amount}!",
+      "home.ads.skipped": "Ad closed early — no reward this time.",
+      "home.ads.unavailable": "No ad is available right now. Try again in a bit.",
+      "home.ads.saveFail": "The ad finished, but saving your reward failed. Please try again.",
 
       "mn.balance": "Available balance",
       "mn.done": "Done",
@@ -125,13 +127,15 @@
       "home.ci.okFree": "চেক-ইন সফল! {n} দিনের স্ট্রিক",
 
       "home.ads.title": "Watch & Earn",
-      "home.ads.sub": "ছোট একটি বিজ্ঞাপন দেখে দ্রুত পুরস্কার নিন।",
+      "home.ads.sub": "ছোট বিজ্ঞাপনটি সম্পূর্ণ দেখে দ্রুত পুরস্কার নিন।",
       "home.ads.left": "আজ {used}/{limit}টি দেখা হয়েছে",
       "home.ads.btn": "বিজ্ঞাপন দেখুন · {amount}",
       "home.ads.done": "আজকের সীমা শেষ",
-      "home.ads.watching": "বিজ্ঞাপন চলছে…",
-      "home.ads.wait": "{n} সেকেন্ড অপেক্ষা করুন",
+      "home.ads.loading": "বিজ্ঞাপন লোড হচ্ছে…",
       "home.ads.ok": "আপনি {amount} পেয়েছেন!",
+      "home.ads.skipped": "বিজ্ঞাপন আগেই বন্ধ হয়েছে — এবার পুরস্কার পাননি।",
+      "home.ads.unavailable": "এখন কোনো বিজ্ঞাপন পাওয়া যাচ্ছে না। একটু পর আবার চেষ্টা করুন।",
+      "home.ads.saveFail": "বিজ্ঞাপন শেষ হয়েছে, কিন্তু পুরস্কার সেভ করা যায়নি। আবার চেষ্টা করুন।",
 
       "mn.balance": "উপলব্ধ ব্যালেন্স",
       "mn.done": "সম্পন্ন",
@@ -227,12 +231,38 @@
 
   const doneBtn = () => '<button class="btn btn-primary btn-block" id="mn-done">' + esc(t("mn.done")) + "</button>";
 
+  /* ----------------------------- Monetag loader ----------------------------- */
+
+  const monetagCache = {};
+  // Injects the Monetag SDK script tag for this zone (if not already loaded) and
+  // returns the zone's show function, e.g. window.show_12111755.
+  function loadMonetag(zoneId) {
+    const fnName = "show_" + zoneId;
+    if (monetagCache[zoneId]) return monetagCache[zoneId];
+    monetagCache[zoneId] = new Promise((resolve, reject) => {
+      if (typeof window[fnName] === "function") return resolve(window[fnName]);
+      const s = document.createElement("script");
+      s.src = "https://libtl.com/sdk.js";
+      s.setAttribute("data-zone", zoneId);
+      s.setAttribute("data-sdk", fnName);
+      s.onload = () => {
+        // The SDK defines the function synchronously once the script executes
+        if (typeof window[fnName] === "function") resolve(window[fnName]);
+        else reject(new Error("ad sdk did not initialize"));
+      };
+      s.onerror = () => reject(new Error("ad sdk failed to load"));
+      document.body.appendChild(s);
+    });
+    return monetagCache[zoneId];
+  }
+
   const Page = {
     id: "home",
     root: null,
     feed: [],
     prev: 0,
     timer: null,
+    adBusy: false,
 
     init(root) {
       this.root = root;
@@ -245,6 +275,10 @@
       this.loadFeed();
       clearInterval(this.timer);
       this.timer = setInterval(() => this.loadFeed(), 45000);
+      const cfg = App.me && App.me.config;
+      if (cfg && cfg.ads && cfg.ads.enabled && cfg.ads.zoneId) {
+        loadMonetag(cfg.ads.zoneId).catch(() => {}); // warm up quietly
+      }
     },
 
     hide() {
@@ -353,14 +387,15 @@
       const a = me.config.ads;
       const used = me.stats.adsWatchedToday || 0;
       const done = used >= a.dailyLimit;
+      const pct = a.dailyLimit > 0 ? Math.min(100, Math.round((used / a.dailyLimit) * 100)) : 0;
       return (
-        '<div class="card">' +
-        '<div class="flex between" style="margin-bottom:12px"><div><div class="card-title">' + esc(t("home.ads.title")) + "</div>" +
-        '<div class="card-sub">' + esc(t("home.ads.sub")) + "</div></div>" +
-        '<div class="row-ico">' + icon("play") + "</div></div>" +
-        '<div class="card-sub" style="margin-bottom:10px">' + esc(t("home.ads.left", { used, limit: a.dailyLimit })) + "</div>" +
-        '<button class="btn btn-primary btn-block" data-act="watchAd" ' + (done ? "disabled" : "") + ">" +
-        icon(done ? "check-circle" : "play", "sm") + esc(done ? t("home.ads.done") : t("home.ads.btn", { amount: money(a.reward) })) + "</button></div>"
+        '<div class="ads-card">' +
+        '<div class="ads-ring" style="--p:' + pct + '"><div class="ads-ring-ico">' + icon("play", "lg") + "</div></div>" +
+        '<div class="ads-main"><div class="ads-title">' + esc(t("home.ads.title")) + "</div>" +
+        '<div class="ads-sub">' + esc(t("home.ads.sub")) + "</div>" +
+        '<div class="ads-left">' + esc(t("home.ads.left", { used, limit: a.dailyLimit })) + "</div></div></div>" +
+        '<button class="btn btn-primary btn-block ads-btn" data-act="watchAd" ' + (done ? "disabled" : "") + ">" +
+        '<span class="ads-btn-t">' + icon(done ? "check-circle" : "play", "sm") + esc(done ? t("home.ads.done") : t("home.ads.btn", { amount: money(a.reward) })) + "</span></button>"
       );
     },
 
@@ -425,33 +460,47 @@
       App.refreshMe({ silent: true });
     },
 
-    // Simulated ad: shows a countdown (no real ad network wired up yet), then pays the reward.
+    // Shows a real Monetag rewarded ad. Reward is only requested after the SDK
+    // confirms the ad was watched (its promise resolves).
     async watchAd(btn) {
-      const secs = (App.me.config.ads && App.me.config.ads.watchSeconds) || 15;
+      if (this.adBusy) return;
+      const cfg = App.me.config.ads;
+      if (!cfg || !cfg.zoneId) return;
+
+      this.adBusy = true;
       btn.disabled = true;
       btn.classList.add("loading");
-      const original = btn.innerHTML;
-      let left = secs;
-      const timer = setInterval(() => {
-        left -= 1;
-        if (left > 0) btn.querySelector("span") && (btn.querySelector("span").textContent = t("home.ads.wait", { n: left }));
-      }, 1000);
-      btn.innerHTML = icon("play", "sm") + '<span>' + esc(t("home.ads.watching")) + "</span>";
+      const label = btn.querySelector(".ads-btn-t");
+      const original = label ? label.innerHTML : "";
+      if (label) label.innerHTML = icon("play", "sm") + "<span>" + esc(t("home.ads.loading")) + "</span>";
+
+      const restore = () => {
+        this.adBusy = false;
+        btn.disabled = false;
+        btn.classList.remove("loading");
+        if (label) label.innerHTML = original;
+      };
 
       try {
-        await UI.sleep(secs * 1000);
-        clearInterval(timer);
+        const show = await loadMonetag(cfg.zoneId);
+        await show(); // resolves once the ad has been fully watched
+      } catch (e) {
+        restore();
+        UI.toast(t("home.ads.unavailable"), "error");
+        return;
+      }
+
+      try {
         const r = await API.post("/user/watch-ad");
         UI.confetti();
         UI.toast(t("home.ads.ok", { amount: money(r.reward) }), "success");
-        App.refreshMe({ silent: true });
+        await App.refreshMe({ silent: true });
       } catch (e) {
-        clearInterval(timer);
-        UI.handleError(e);
-        btn.disabled = false;
-        btn.classList.remove("loading");
-        btn.innerHTML = original;
+        UI.toast(t("home.ads.saveFail"), "error");
+        restore();
+        return;
       }
+      // render() (from refreshMe) redraws the button with the updated count
     },
 
     /* ----------------------------- DEPOSIT ----------------------------- */
