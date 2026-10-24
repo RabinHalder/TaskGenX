@@ -30,7 +30,11 @@
       "pf.lv.note": "Tasks and Referrals: the mission you complete at that level to move up (both are needed). – means none.",
       "pf.detailsTitle": "Withdraw details",
       "pf.detailsSub": "Saved details are used when you withdraw.",
+      "pf.upiSub": "UPI",
       "pf.upi": "UPI ID",
+      "pf.upiName": "Account holder name",
+      "pf.upiNameHint": "Your name exactly as registered with your bank or UPI. Required for successful UPI payouts.",
+      "pf.walletSub": "FINZO Wallet",
       "pf.wallet": "FINZO Wallet number",
       "pf.walletPh": "10-digit FINZO wallet number",
       "pf.appear": "Appearance",
@@ -97,7 +101,11 @@
       "pf.lv.note": "টাস্ক ও রেফারেল: ওই লেভেলে থেকে পরের লেভেলে ওঠার মিশন (দুটোই লাগবে)। – মানে লাগবে না।",
       "pf.detailsTitle": "উইথড্র তথ্য",
       "pf.detailsSub": "উইথড্র করার সময় সেভ করা তথ্য ব্যবহার হবে।",
+      "pf.upiSub": "UPI",
       "pf.upi": "UPI আইডি",
+      "pf.upiName": "অ্যাকাউন্ট হোল্ডারের নাম",
+      "pf.upiNameHint": "আপনার ব্যাংক বা UPI-তে নথিভুক্ত নাম, হুবহু ইংরেজিতে লিখুন। UPI উইথড্র সফল হতে এটা জরুরি।",
+      "pf.walletSub": "FINZO Wallet",
       "pf.wallet": "FINZO ওয়ালেট নম্বর",
       "pf.walletPh": "১০ সংখ্যার FINZO ওয়ালেট নম্বর",
       "pf.appear": "চেহারা",
@@ -251,8 +259,9 @@
 
     async saveDetails(btn) {
       const upi = this.root.querySelector("#pf-upi").value.trim();
+      const upiName = this.root.querySelector("#pf-upi-name").value.trim();
       const wal = this.root.querySelector("#pf-wallet").value.trim();
-      const r = await UI.withBusy(btn, () => API.put("/user/withdraw-details", { upi, finzoWallet: wal }));
+      const r = await UI.withBusy(btn, () => API.put("/user/withdraw-details", { upi, upiName, finzoWallet: wal }));
       if (!r) return;
       App.me.user.withdrawDetails = r.withdrawDetails;
       UI.toast(t("common.saved"), "success");
@@ -323,8 +332,10 @@
       const u = me.user, cfg = me.config, lv = me.level;
 
       const oldUpi = this.root.querySelector("#pf-upi");
+      const oldUpiName = this.root.querySelector("#pf-upi-name");
       const oldWal = this.root.querySelector("#pf-wallet");
       const upiVal = oldUpi ? oldUpi.value : u.withdrawDetails.upi;
+      const upiNameVal = oldUpiName ? oldUpiName.value : u.withdrawDetails.upiName || "";
       const walVal = oldWal ? oldWal.value : u.withdrawDetails.finzoWallet;
 
       const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.username || t("common.unknown");
@@ -338,8 +349,9 @@
         '<label class="swatch swatch-custom ' + (isCustom ? "active" : "") + '"><input type="color" id="pf-color" value="' + (isCustom ? accent : "#4c5bff") + '" /></label>';
 
       const stat = (label, value) => '<div class="pf-stat"><b>' + esc(value) + "</b><span>" + esc(label) + "</span></div>";
-      const input = (id, label, val, ph, mode) =>
-        '<div class="field"><label>' + esc(label) + '</label><input class="input" id="' + id + '" type="text" maxlength="256" inputmode="' + (mode || "text") + '" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(val) + '" placeholder="' + esc(ph) + '" /></div>';
+      const input = (id, label, val, ph, mode, hint) =>
+        '<div class="field"><label>' + esc(label) + '</label><input class="input" id="' + id + '" type="text" maxlength="256" inputmode="' + (mode || "text") + '" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(val) + '" placeholder="' + esc(ph) + '" />' +
+        (hint ? '<div class="field-hint">' + esc(hint) + "</div>" : "") + "</div>";
 
       this.root.innerHTML =
         '<div class="pf-hero"><div class="pf-cover"></div>' +
@@ -356,8 +368,12 @@
 
         this.levelCard(me) +
 
-        '<div class="card pf-sec" id="pf-details"><div class="card-title">' + icon("wallet", "sm") + esc(t("pf.detailsTitle")) + '</div><div class="card-sub" style="margin:4px 0 14px">' + esc(t("pf.detailsSub")) + "</div>" +
+        '<div class="card pf-sec" id="pf-details"><div class="card-title">' + icon("wallet", "sm") + esc(t("pf.detailsTitle")) + '</div><div class="card-sub" style="margin:4px 0 4px">' + esc(t("pf.detailsSub")) + "</div>" +
+        '<div class="pf-sub-head" style="margin-top:14px">' + icon("smartphone", "sm") + esc(t("pf.upiSub")) + "</div>" +
         input("pf-upi", t("pf.upi"), upiVal, "name@bank") +
+        input("pf-upi-name", t("pf.upiName"), upiNameVal, "Example: Rahim Uddin", "text", t("pf.upiNameHint")) +
+        '<div class="pf-divider"></div>' +
+        '<div class="pf-sub-head">' + icon("wallet", "sm") + esc(t("pf.walletSub")) + "</div>" +
         input("pf-wallet", t("pf.wallet"), walVal, t("pf.walletPh"), "numeric") +
         '<button class="btn btn-primary btn-block" data-act="saveDetails">' + icon("check", "sm") + esc(t("common.save")) + "</button></div>" +
 
