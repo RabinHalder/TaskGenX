@@ -75,7 +75,13 @@ function publicConfig(s) {
       payOn: s.referral.payOn,
     },
     checkin: { enabled: s.checkin.enabled, rewards: s.checkin.rewards },
-    ads: { enabled: s.ads.enabled, reward: s.ads.reward, dailyLimit: s.ads.dailyLimit, watchSeconds: s.ads.watchSeconds },
+    ads: {
+      enabled: s.ads.enabled && !!s.ads.zoneId,
+      provider: s.ads.provider,
+      zoneId: s.ads.zoneId,
+      reward: s.ads.reward,
+      dailyLimit: s.ads.dailyLimit,
+    },
     club: { enabled: s.club.enabled },
     proof: { maxSizeMB: s.proof.maxSizeMB },
     levels: (s.levels || []).map(cleanLevel),
@@ -177,14 +183,14 @@ router.post(
   })
 );
 
-// Simulated "Watch & Earn": the app shows a countdown for ads.watchSeconds, then calls this.
-// There is no real ad network plugged in yet — this just enforces the daily limit and pays the reward.
+// Called after the Monetag ad finishes (SDK promise resolved on the client).
+// No server-side postback is wired up yet, so this trusts the client beyond the daily limit.
 router.post(
   "/watch-ad",
   wrap(async (req, res) => {
     const { user, settings } = req;
     const a = settings.ads;
-    if (!a.enabled) throw fail(400, "Watch & Earn is disabled");
+    if (!a.enabled || !a.zoneId) throw fail(400, "Watch & Earn is disabled");
 
     const tz = settings.app.timezone;
     const today = dateKey(new Date(), tz);
