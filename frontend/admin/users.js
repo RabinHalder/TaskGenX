@@ -50,6 +50,8 @@
       "ad.u.recent": "Recent transactions",
       "ad.u.noTx": "No transactions yet.",
       "ad.u.badAmount": "Enter a valid amount",
+      "ad.u.active": "Active",
+      "ad.u.inactive": "Inactive",
     },
     {
       "ad.u.title": "ইউজার",
@@ -95,6 +97,8 @@
       "ad.u.recent": "সাম্প্রতিক লেনদেন",
       "ad.u.noTx": "এখনো কোনো লেনদেন নেই।",
       "ad.u.badAmount": "সঠিক পরিমাণ লিখুন",
+      "ad.u.active": "সক্রিয়",
+      "ad.u.inactive": "নিষ্ক্রিয়",
     }
   );
 
@@ -195,20 +199,20 @@
         return;
       }
       box.innerHTML =
-        '<div class="card-sub" style="margin:0 2px 8px">' + esc(t("ad.u.count", { n: UI.num(this.total) })) + "</div>" +
-        '<div class="card">' +
+        '<div class="card-sub" style="margin:0 2px 10px">' + esc(t("ad.u.count", { n: UI.num(this.total) })) + "</div>" +
         this.items
-          .map(
-            (u) =>
-              '<button class="row" data-act="open" data-id="' + esc(u.tgId) + '" style="width:100%;text-align:left;color:inherit">' +
-              UI.avatar(u) +
+          .map((u) => {
+            const active = u.lastSeenAt && Date.now() - new Date(u.lastSeenAt).getTime() < 86400000;
+            return (
+              '<button class="card usr-row" data-act="open" data-id="' + esc(u.tgId) + '">' +
+              '<span class="usr-av-wrap">' + UI.avatar(u) + '<i class="usr-dot ' + (active ? "on" : "") + '"></i></span>' +
               '<div class="row-main"><div class="row-title">' + esc(u.name) + (u.username ? " · @" + esc(u.username) : "") + "</div>" +
               '<div class="row-sub">' + esc(t("ad.u.meta", { id: u.tgId, lv: u.level })) + "</div></div>" +
               '<div class="row-end"><div>' + esc(money(u.balance)) + "</div>" +
-              (u.isBanned ? '<span class="badge bad">' + esc(t("ad.u.banned")) + "</span>" : "") + "</div></button>"
-          )
+              '<span class="badge ' + (u.isBanned ? "bad" : "ok") + '">' + esc(u.isBanned ? t("ad.u.banned") : t("ad.u.active")) + "</span></div></button>"
+            );
+          })
           .join("") +
-        "</div>" +
         (this.more ? '<button class="btn btn-ghost btn-block" data-act="more">' + esc(t("common.loadMore")) + "</button>" : "");
     },
 
@@ -224,6 +228,8 @@
         },
       });
 
+      const kpi = (ico, label, value) =>
+        '<div class="kpi"><div class="kpi-ico">' + icon(ico) + "</div><b>" + esc(value) + "</b><span>" + esc(label) + "</span></div>";
       const kv = (label, value) => "<div>" + esc(label) + "<b>" + esc(value) + "</b></div>";
 
       function paint(r) {
@@ -231,38 +237,55 @@
         const u = r.user;
         const txs = r.transactions;
         sh.el.innerHTML =
-          '<div class="flex" style="margin-bottom:6px">' + UI.avatar(u) +
-          '<div style="min-width:0"><div class="card-title">' + esc(u.name) + "</div>" +
-          '<div class="card-sub">' + esc(Kit.who(u)) + "</div></div>" +
-          '<button class="icon-btn" data-act="copy" data-v="' + esc(u.tgId) + '" style="margin-left:auto" aria-label="Copy">' + icon("copy", "sm") + "</button></div>" +
+          '<div class="usr-hero">' +
+          UI.avatar(u, "avatar-lg") +
+          '<div class="usr-hero-name">' + esc(u.name) + "</div>" +
+          '<div class="card-sub">' + esc(Kit.who(u)) + "</div>" +
+          '<div class="usr-hero-badges">' +
+          '<span class="pf-pill" style="background:var(--surface-2);color:var(--text)">' + icon("award", "sm") + "Level " + esc(u.level) + "</span>" +
           (u.isBanned
-            ? '<div class="note">' + icon("ban") + "<div><b>" + esc(t("ad.u.banned")) + "</b>" + (u.banReason ? ": " + esc(u.banReason) : "") + "</div></div>"
+            ? '<span class="pf-pill" style="background:var(--danger)">' + icon("ban", "sm") + esc(t("ad.u.banned")) + "</span>"
             : "") +
-          '<div class="kv">' +
-          kv(t("ad.u.balance"), money(u.balance)) + kv(t("ad.u.earned"), money(u.totalEarned)) +
-          kv(t("ad.u.deposited"), money(u.totalDeposited)) + kv(t("ad.u.withdrawn"), money(u.totalWithdrawn)) +
-          kv(t("ad.u.refEarn"), money(u.referralEarnings)) + kv(t("ad.u.level"), String(u.level)) +
-          kv(t("ad.u.tasks"), UI.num(u.tasksApproved)) + kv(t("ad.u.refs"), u.referralCount + " / " + u.referralsRewarded) +
-          kv(t("ad.u.refBy"), u.referredBy ? String(u.referredBy) : t("ad.u.none")) + kv(t("ad.u.wdCount"), UI.num(u.successfulWithdrawals)) +
-          kv(t("ad.u.joined"), UI.date(u.createdAt)) + kv(t("ad.u.lastSeen"), u.lastSeenAt ? UI.timeAgo(u.lastSeenAt) : t("ad.u.never")) +
+          "</div>" +
+          '<button class="icon-btn" id="usr-copy" style="position:absolute;top:0;right:0" aria-label="Copy">' + icon("copy", "sm") + "</button>" +
+          "</div>" +
+          (u.isBanned && u.banReason ? '<div class="note" style="margin-bottom:12px">' + icon("alert") + "<div>" + esc(u.banReason) + "</div></div>" : "") +
+          '<div class="kpi-grid">' +
+          kpi("wallet", t("ad.u.balance"), money(u.balance)) +
+          kpi("trending-up", t("ad.u.earned"), money(u.totalEarned)) +
+          kpi("arrow-down-circle", t("ad.u.deposited"), money(u.totalDeposited)) +
+          kpi("arrow-up-circle", t("ad.u.withdrawn"), money(u.totalWithdrawn)) +
+          "</div>" +
+          '<div class="card"><div class="kv">' +
+          kv(t("ad.u.tasks"), UI.num(u.tasksApproved)) +
+          kv(t("ad.u.refs"), u.referralCount + " / " + u.referralsRewarded) +
+          kv(t("ad.u.refEarn"), money(u.referralEarnings)) +
+          kv(t("ad.u.refBy"), u.referredBy ? String(u.referredBy) : t("ad.u.none")) +
+          kv(t("ad.u.wdCount"), UI.num(u.successfulWithdrawals)) +
+          kv(t("ad.u.botBlocked"), u.botBlocked ? t("common.yes") : t("common.no")) +
+          kv(t("ad.u.joined"), UI.date(u.createdAt)) +
+          kv(t("ad.u.lastSeen"), u.lastSeenAt ? UI.timeAgo(u.lastSeenAt) : t("ad.u.never")) +
           kv(t("ad.u.upi"), u.withdrawDetails && u.withdrawDetails.upi ? u.withdrawDetails.upi : t("ad.u.none")) +
           kv(t("ad.u.wallet"), u.withdrawDetails && u.withdrawDetails.finzoWallet ? u.withdrawDetails.finzoWallet : t("ad.u.none")) +
-          kv(t("ad.u.botBlocked"), u.botBlocked ? t("common.yes") : t("common.no")) +
-          "</div>" +
-          '<div class="ad-actions" style="margin-bottom:14px">' +
+          "</div></div>" +
+          '<div class="ad-actions" style="margin:14px 0">' +
           '<button class="btn btn-primary" data-act="adjust">' + icon("sliders", "sm") + esc(t("ad.u.adjust")) + "</button>" +
           '<button class="btn ' + (u.isBanned ? "btn-ok" : "btn-danger") + '" data-act="ban">' + icon(u.isBanned ? "check-circle" : "ban", "sm") + esc(u.isBanned ? t("ad.u.unban") : t("ad.u.ban")) + "</button></div>" +
-          '<div class="card-title" style="margin-bottom:6px">' + esc(t("ad.u.recent")) + "</div>" +
+          '<div class="card"><div class="card-title" style="margin-bottom:6px">' + esc(t("ad.u.recent")) + "</div>" +
           (txs.length
             ? txs
                 .map(
                   (x) =>
-                    '<div class="row"><div class="row-main"><div class="row-title">' + esc(t("tx." + x.type)) + "</div>" +
+                    '<div class="row"><div class="row-ico">' + icon("history", "sm") + "</div>" +
+                    '<div class="row-main"><div class="row-title">' + esc(t("tx." + x.type)) + "</div>" +
                     '<div class="row-sub">' + esc(UI.dateTime(x.createdAt)) + (x.note ? " · " + esc(x.note) : "") + "</div></div>" +
                     '<div class="row-end"><div class="' + (x.amount >= 0 ? "plus" : "minus") + '">' + esc(UI.signedMoney(x.amount)) + "</div></div></div>"
                 )
                 .join("")
-            : UI.emptyState("history", t("ad.u.noTx")));
+            : UI.emptyState("history", t("ad.u.noTx"))) +
+          "</div>";
+
+        sh.el.querySelector("#usr-copy").onclick = () => UI.copy(String(u.tgId));
       }
 
       async function load() {
@@ -276,7 +299,6 @@
 
       UI.on(sh.el, "click", "[data-act]", async (e, el) => {
         const a = el.dataset.act;
-        if (a === "copy") return UI.copy(el.dataset.v);
         if (!cur) return;
         if (a === "adjust") {
           Page.adjust(cur, () => {
