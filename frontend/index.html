@@ -9,7 +9,6 @@
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
-    // Set the theme before first paint to avoid a white flash.
     (function () {
       try {
         var p = localStorage.getItem("tgx_theme") || "auto";
@@ -61,7 +60,14 @@
   <script src="/shared/ui.js"></script>
   <script src="/shared/api.js"></script>
 
-  <!-- User panel. The admin panel loads itself later, only for admins. -->
+  <!-- Home: one file per feature, loaded before home.js which composes them -->
+  <script src="/user/home/shared.js"></script>
+  <script src="/user/home/checkin.js"></script>
+  <script src="/user/home/ads.js"></script>
+  <script src="/user/home/deposit.js"></script>
+  <script src="/user/home/withdraw.js"></script>
+
+  <!-- User panel -->
   <script src="/user/home.js"></script>
   <script src="/user/club.js"></script>
   <script src="/user/task.js"></script>
