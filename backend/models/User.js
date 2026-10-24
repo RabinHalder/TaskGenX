@@ -19,7 +19,6 @@ const userSchema = new Schema(
     // Progress
     level: { type: Number, default: 1 },
     tasksApproved: { type: Number, default: 0 },
-    // Mission progress at the current level (both restart on every level-up)
     levelTasks: { type: Number, default: 0 },
     levelReferrals: { type: Number, default: 0 },
 
@@ -45,6 +44,8 @@ const userSchema = new Schema(
     // Saved withdraw details
     withdrawDetails: {
       upi: { type: String, default: "" },
+      // Account holder name as registered with the bank/UPI — used as the FINZO payout beneficiary name.
+      upiName: { type: String, default: "" },
       finzoWallet: { type: String, default: "" },
     },
 
