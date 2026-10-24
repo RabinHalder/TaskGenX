@@ -890,9 +890,13 @@ function buildSettingsUpdate(b) {
   if (b.ads && typeof b.ads === "object") {
     const a = b.ads;
     if (has(a, "enabled")) set["ads.enabled"] = bool(a.enabled);
+    if (has(a, "zoneId")) {
+      const z = str(a.zoneId, "Monetag Zone ID", 32);
+      if (z && !/^[0-9]{1,20}$/.test(z)) throw fail(400, "Zone ID must be numbers only");
+      set["ads.zoneId"] = z;
+    }
     if (has(a, "reward")) set["ads.reward"] = round2(num(a.reward, "Ad reward", { min: 0, max: 1000 }));
     if (has(a, "dailyLimit")) set["ads.dailyLimit"] = num(a.dailyLimit, "Ads daily limit", { min: 1, max: 1000, int: true });
-    if (has(a, "watchSeconds")) set["ads.watchSeconds"] = num(a.watchSeconds, "Ad watch seconds", { min: 3, max: 120, int: true });
   }
 
   if (has(b, "proof") && has(b.proof, "maxSizeMB")) {
