@@ -9,7 +9,6 @@ const { fail } = require("../utils/errors");
 
 const ACTIVE_STATUSES = ["created", "awaiting_approval", "processing", "success"];
 
-// Problems the admin must fix (not the user's fault). The withdrawal waits instead of being refunded.
 const HOLD_CODES = new Set([
   "INSUFFICIENT_BALANCE",
   "GATEWAY_AUTH_INVALID",
@@ -29,6 +28,7 @@ function friendlyReason(e) {
     case "WITHDRAW_AMOUNT_RANGE":
     case "AMOUNT_OUT_OF_RANGE":
     case "AMOUNT_RANGE":
+    case "AMOUNT_INVALID":
       return "Amount is outside the allowed range";
     case "NO_ADD_FUND_AGENT":
       return "No payment channel is available right now";
@@ -37,7 +37,6 @@ function friendlyReason(e) {
   }
 }
 
-// Tells admins about a problem, at most once every 10 minutes per kind.
 const lastAlert = {};
 function alertAdmins(key, text) {
   const now = Date.now();
@@ -239,15 +238,12 @@ async function refundWithdraw(p, reason, newStatus = "failed", allowedFrom = ["c
   return claimed;
 }
 
-// Uses the saved "account holder name" (exact bank/UPI name) when the user provided one.
-// Otherwise falls back to their Telegram name with non-English characters stripped,
-// since FINZO's payout beneficiary name field expects plain English text.
 function beneficiaryName(user) {
   const saved = String((user.withdrawDetails && user.withdrawDetails.upiName) || "").trim();
   if (saved) return saved.slice(0, 50);
 
   const ascii = String(fullName(user))
-    .replace(/[^\x20-\x7E]/g, "") // drop anything outside printable ASCII (keeps non-English names from silently failing)
+    .replace(/[^\x20-\x7E]/g, "")
     .replace(/[^A-Za-z .'-]/g, "")
     .replace(/\s+/g, " ")
     .trim()
@@ -284,7 +280,6 @@ async function handlePayoutError(p, e) {
 
   if (e.definite) {
     await refundWithdraw(p, friendlyReason(e));
-    // Let the admin see the exact gateway reason — otherwise "withdraw not working" is impossible to debug.
     alertAdmins(
       "finzo-refund-" + p.orderId,
       `A withdrawal (<code>${escapeHtml(p.orderId)}</code>, ₹${p.amount}, ${p.method}) was refunded.\n` +
@@ -292,7 +287,6 @@ async function handlePayoutError(p, e) {
     );
     return;
   }
-  // Uncertain result: stays "processing". The background check resolves it.
 }
 
 async function processPayout(paymentId) {
@@ -376,8 +370,16 @@ async function createWithdraw(user, amount, method, settings) {
     throw fail(400, `Daily withdraw limit is ₹${mc.dailyLimit}. Remaining today: ₹${Math.max(0, round2(mc.dailyLimit - day))}`);
   }
 
-  const fee = round2((amount * lvl.withdrawFeePercent) / 100);
-  const net = round2(amount - fee);
+  const feeRaw = round2((amount * lvl.withdrawFeePercent) / 100);
+  let net = round2(amount - feeRaw);
+  let fee = feeRaw;
+  // FINZO's UPI payout only accepts a whole-rupee amount (AMOUNT_INVALID otherwise).
+  // Round the net amount down to a whole rupee and let the leftover paise go to the fee,
+  // so amount = fee + net always holds exactly.
+  if (method === "upi") {
+    net = Math.floor(net);
+    fee = round2(amount - net);
+  }
   if (net <= 0) throw fail(400, "Amount is too small after fees");
 
   const orderId = makeOrderId("WD");
