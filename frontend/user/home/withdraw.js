@@ -11,21 +11,24 @@
       "wd.noDetail": "Add your {method} details in Profile first.",
       "wd.addDetail": "Add details",
       "wd.notAdded": "Not added",
-      "wd.amount": "Enter amount",
+      "wd.amount": "Amount you'll receive",
       "wd.hint": "Min {min} · Max {max}",
+      "wd.hintWhole": "Min {min} · Max {max} · Whole rupees only",
       "wd.max": "Max",
       "wd.range": "Enter an amount between {min} and {max}",
-      "wd.low": "You do not have enough balance",
-      "wd.sumAmount": "Withdraw amount",
-      "wd.sumFee": "Fee ({pct}%)",
-      "wd.sumGet": "You receive",
-      "wd.infoFee": "Withdraw fee {pct}% at your level",
+      "wd.rangeWhole": "Enter a whole rupee amount between {min} and {max}",
+      "wd.low": "Your balance is not enough to cover this amount plus the fee",
+      "wd.sumGet": "You will receive",
+      "wd.sumFee": "Fee ({pct}%, deducted from balance)",
+      "wd.sumTotal": "Total deducted from balance",
+      "wd.infoExact": "You will receive exactly the amount you enter",
+      "wd.infoFee": "Fee {pct}% at your level, taken from your balance",
       "wd.infoMonth": "{used} of {limit} withdrawals used this month",
       "wd.infoDaily": "Daily limit {daily} for this method",
       "wd.limitReached": "You have used all {limit} withdrawals for this month. Reach the next level to get more.",
       "wd.approval": "Withdrawals of {amount} or more need admin approval.",
       "wd.submit": "Withdraw",
-      "wd.btn": "Withdraw {amount}",
+      "wd.btn": "Receive {amount}",
       "wd.off": "Withdrawals are turned off right now.",
       "wd.okTitle": "Withdrawal sent",
       "wd.okText": "The money is on its way to your account.",
@@ -35,8 +38,9 @@
       "wd.procText": "Your payout is being processed. You will be notified when it is done.",
       "wd.failTitle": "Withdrawal failed",
       "wd.failText": "The amount was returned to your balance.",
+      "wd.rowReceived": "Received",
       "wd.rowFee": "Fee",
-      "wd.rowGet": "You receive",
+      "wd.rowDebit": "Debited from balance",
       "wd.rowTo": "To",
     },
     {
@@ -45,21 +49,24 @@
       "wd.noDetail": "আগে প্রোফাইলে আপনার {method} তথ্য যোগ করুন।",
       "wd.addDetail": "তথ্য যোগ করুন",
       "wd.notAdded": "যোগ করা হয়নি",
-      "wd.amount": "পরিমাণ লিখুন",
+      "wd.amount": "আপনি যত পাবেন তা লিখুন",
       "wd.hint": "সর্বনিম্ন {min} · সর্বোচ্চ {max}",
+      "wd.hintWhole": "সর্বনিম্ন {min} · সর্বোচ্চ {max} · শুধু পূর্ণ টাকা",
       "wd.max": "সর্বোচ্চ",
       "wd.range": "{min} থেকে {max} এর মধ্যে পরিমাণ লিখুন",
-      "wd.low": "আপনার ব্যালেন্স যথেষ্ট নয়",
-      "wd.sumAmount": "উইথড্রর পরিমাণ",
-      "wd.sumFee": "ফি ({pct}%)",
+      "wd.rangeWhole": "{min} থেকে {max} এর মধ্যে একটি পূর্ণ সংখ্যা লিখুন",
+      "wd.low": "এই পরিমাণ ও ফি মিলিয়ে আপনার ব্যালেন্স যথেষ্ট নয়",
       "wd.sumGet": "আপনি পাবেন",
-      "wd.infoFee": "আপনার লেভেলে উইথড্র ফি {pct}%",
+      "wd.sumFee": "ফি ({pct}%, ব্যালেন্স থেকে কাটা হবে)",
+      "wd.sumTotal": "ব্যালেন্স থেকে মোট কাটা হবে",
+      "wd.infoExact": "আপনি যা লিখবেন ঠিক ততটাই পাবেন",
+      "wd.infoFee": "আপনার লেভেলে ফি {pct}%, আপনার ব্যালেন্স থেকে কাটা হবে",
       "wd.infoMonth": "এই মাসে {limit}টির মধ্যে {used}টি উইথড্র হয়েছে",
       "wd.infoDaily": "এই পদ্ধতিতে দৈনিক সীমা {daily}",
       "wd.limitReached": "এই মাসের {limit}টি উইথড্রই আপনি ব্যবহার করেছেন। বেশি পেতে পরের লেভেলে উঠুন।",
       "wd.approval": "{amount} বা তার বেশি উইথড্রে অ্যাডমিনের অনুমোদন লাগে।",
       "wd.submit": "উইথড্র করুন",
-      "wd.btn": "{amount} উইথড্র করুন",
+      "wd.btn": "{amount} পান",
       "wd.off": "এখন উইথড্র বন্ধ আছে।",
       "wd.okTitle": "উইথড্র পাঠানো হয়েছে",
       "wd.okText": "টাকা আপনার অ্যাকাউন্টের পথে আছে।",
@@ -69,8 +76,9 @@
       "wd.procText": "আপনার পেআউট প্রক্রিয়াধীন। শেষ হলে আপনাকে জানানো হবে।",
       "wd.failTitle": "উইথড্র ব্যর্থ হয়েছে",
       "wd.failText": "টাকা আপনার ব্যালেন্সে ফেরত দেওয়া হয়েছে।",
+      "wd.rowReceived": "পেয়েছেন",
       "wd.rowFee": "ফি",
-      "wd.rowGet": "আপনি পাবেন",
+      "wd.rowDebit": "ব্যালেন্স থেকে কাটা হয়েছে",
       "wd.rowTo": "কোথায়",
     }
   );
@@ -130,14 +138,22 @@
         const go = el.querySelector("#wd-go");
         const goText = el.querySelector("#wd-go-t");
 
+        const isUpi = () => method === "upi";
+
+        // UPI must be a whole rupee amount (FINZO requirement); Wallet allows paise.
+        function filterInput() {
+          input.value = isUpi() ? input.value.replace(/[^0-9]/g, "") : input.value.replace(/[^0-9.]/g, "");
+        }
+
         function paintSum() {
-          input.value = input.value.replace(/[^0-9.]/g, "");
+          filterInput();
           const a = parseFloat(input.value) || 0;
           const fee = round2((a * feePct) / 100);
+          const total = round2(a + fee);
           sum.innerHTML =
-            row(t("wd.sumAmount"), money(a)) +
-            row(t("wd.sumFee", { pct: feePct }), "-" + money(fee)) +
-            row(t("wd.sumGet"), money(Math.max(0, round2(a - fee))), "total");
+            row(t("wd.sumGet"), money(a)) +
+            row(t("wd.sumFee", { pct: feePct }), "+" + money(fee)) +
+            row(t("wd.sumTotal"), money(total), "total");
           goText.textContent = a > 0 ? t("wd.btn", { amount: money(a) }) : t("wd.submit");
           const needs = cfg.approvalEnabled && a >= cfg.approvalAbove && a > 0;
           el.querySelector("#wd-appr").innerHTML = needs ? '<div class="note">' + icon("info") + "<div>" + esc(t("wd.approval", { amount: money(cfg.approvalAbove) })) + "</div></div>" : "";
@@ -150,8 +166,11 @@
             const v = detail(b.dataset.m);
             b.querySelector("small").textContent = v ? maskDest(v) : t("wd.notAdded");
           });
-          el.querySelector("#wd-hint").textContent = t("wd.hint", { min: money(c.min), max: money(c.max) });
+          el.querySelector("#wd-hint").textContent = isUpi()
+            ? t("wd.hintWhole", { min: money(c.min), max: money(c.max) })
+            : t("wd.hint", { min: money(c.min), max: money(c.max) });
           el.querySelector("#wd-info").innerHTML =
+            info("check-circle", t("wd.infoExact")) +
             info("percent", t("wd.infoFee", { pct: feePct })) +
             info("calendar", t("wd.infoMonth", { used, limit: monthly })) +
             info("clock", t("wd.infoDaily", { daily: money(c.dailyLimit) }));
@@ -179,17 +198,21 @@
           })
         );
         el.querySelector("#wd-max").onclick = () => {
-          const m = Math.min(App.me.user.balance, mc().max);
-          input.value = String(Math.floor(m * 100) / 100);
+          const c = mc();
+          // Largest amount the user can receive such that (amount + fee) still fits their balance.
+          const byBalance = App.me.user.balance / (1 + feePct / 100);
+          let m = Math.min(byBalance, c.max);
+          m = isUpi() ? Math.floor(m) : Math.floor(m * 100) / 100;
+          input.value = String(Math.max(0, m));
           UI.haptic("select");
           paintSum();
         };
 
         function showResult(r, a) {
           const rows = [
-            [t("wd.sumAmount"), money(r.amount || a)],
+            [t("wd.rowReceived"), money(r.netAmount)],
             [t("wd.rowFee"), money(r.fee || 0)],
-            [t("wd.rowGet"), money(r.netAmount)],
+            [t("wd.rowDebit"), money(r.amount)],
             [t("wd.rowTo"), t("method." + method) + " · " + maskDest(r.destination || detail(method))],
           ];
           let o;
@@ -197,11 +220,10 @@
             UI.confetti();
             o = { tone: "ok", ico: "check", title: t("wd.okTitle"), amount: money(r.netAmount), text: t("wd.okText") };
           } else if (r.status === "awaiting_approval") {
-            o = { tone: "wait", ico: "clock", title: t("wd.pendTitle"), amount: money(r.amount || a), text: t("wd.pendText") };
+            o = { tone: "wait", ico: "clock", title: t("wd.pendTitle"), amount: money(r.netAmount || a), text: t("wd.pendText") };
           } else if (r.status === "processing") {
             o = { tone: "wait", ico: "send", title: t("wd.procTitle"), amount: money(r.netAmount), text: t("wd.procText") };
           } else {
-            // Show the real reason from the server when we have one, instead of a generic line.
             o = { tone: "bad", ico: "x", title: t("wd.failTitle"), text: r.failureReason || t("wd.failText") };
           }
           el.innerHTML = resultHtml({ ...o, rows: o.tone === "bad" ? [] : rows, buttons: doneBtn() });
@@ -213,10 +235,14 @@
             const a = parseFloat(input.value) || 0;
             const c = mc();
             if (!detail(method)) throw new Error(t("wd.noDetail", { method: t("method." + method) }));
+            if (isUpi() && !Number.isInteger(a)) {
+              throw new Error(t("wd.rangeWhole", { min: money(c.min), max: money(c.max) }));
+            }
             if (!(a >= c.min && a <= c.max)) {
               throw new Error(t("wd.range", { min: money(c.min), max: money(c.max) }));
             }
-            if (a > App.me.user.balance) throw new Error(t("wd.low"));
+            const fee = round2((a * feePct) / 100);
+            if (round2(a + fee) > App.me.user.balance) throw new Error(t("wd.low"));
             const r = await API.post("/wallet/withdraw", { amount: a, method });
             showResult(r, a);
           });
