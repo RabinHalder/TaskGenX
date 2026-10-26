@@ -221,6 +221,8 @@ async function refundWithdraw(p, reason, newStatus = "failed", allowedFrom = ["c
 
   let user;
   try {
+    // claimed.amount is the full amount that was debited from the wallet (withdrawal + fee),
+    // so refunding it back makes the user whole exactly.
     user = await wallet.credit(claimed.user, claimed.amount, "withdraw_refund", `Refund: ${reason || newStatus}`, claimed.orderId);
   } catch (e) {
     await Payment.updateOne({ _id: claimed._id }, { $set: { settled: false, refunded: false, status: p.status } });
@@ -230,8 +232,8 @@ async function refundWithdraw(p, reason, newStatus = "failed", allowedFrom = ["c
   const why = escapeHtml(reason || "");
   bot.notifyUser(
     user,
-    `Your withdrawal of ₹${claimed.amount} was not completed. The amount was refunded to your balance.${why ? "\nReason: " + why : ""}`,
-    `আপনার ₹${claimed.amount} উইথড্র সম্পন্ন হয়নি। টাকা ব্যালেন্সে ফেরত দেওয়া হয়েছে।${why ? "\nকারণ: " + why : ""}`,
+    `Your withdrawal of ₹${claimed.netAmount} was not completed. ₹${claimed.amount} was refunded to your balance.${why ? "\nReason: " + why : ""}`,
+    `আপনার ₹${claimed.netAmount} উইথড্র সম্পন্ন হয়নি। ₹${claimed.amount} ব্যালেন্সে ফেরত দেওয়া হয়েছে।${why ? "\nকারণ: " + why : ""}`,
     [bot.openAppButton("Open TaskGenX")],
     true
   );
@@ -271,8 +273,8 @@ async function handlePayoutError(p, e) {
       const user = await User.findById(p.user);
       bot.notifyUser(
         user,
-        `Your withdrawal of ₹${p.amount} is waiting for approval.`,
-        `আপনার ₹${p.amount} উইথড্র অনুমোদনের অপেক্ষায় আছে।`
+        `Your withdrawal of ₹${p.netAmount} is waiting for approval.`,
+        `আপনার ₹${p.netAmount} উইথড্র অনুমোদনের অপেক্ষায় আছে।`
       );
     }
     return;
@@ -282,7 +284,7 @@ async function handlePayoutError(p, e) {
     await refundWithdraw(p, friendlyReason(e));
     alertAdmins(
       "finzo-refund-" + p.orderId,
-      `A withdrawal (<code>${escapeHtml(p.orderId)}</code>, ₹${p.amount}, ${p.method}) was refunded.\n` +
+      `A withdrawal (<code>${escapeHtml(p.orderId)}</code>, ₹${p.netAmount} received, ₹${p.amount} debited, ${p.method}) was refunded.\n` +
         `Reason from FINZO: <code>${escapeHtml(e.code || "")}</code> — ${escapeHtml(e.message || "")}`
     );
     return;
@@ -303,6 +305,8 @@ async function processPayout(paymentId) {
 
   try {
     const user = await User.findById(p.user);
+    // p.netAmount is exactly what the user typed, already validated as a whole
+    // rupee for UPI at creation time, so no rounding is needed here.
     const r =
       p.method === "upi"
         ? await finzo.payoutUpi({ orderId: fid, amount: p.netAmount, upi: p.destination, name: beneficiaryName(user) })
@@ -314,7 +318,7 @@ async function processPayout(paymentId) {
       await refundWithdraw(p, "Payout failed");
       alertAdmins(
         "finzo-refund-" + p.orderId,
-        `A withdrawal (<code>${escapeHtml(p.orderId)}</code>, ₹${p.amount}, ${p.method}) failed at FINZO and was refunded.`
+        `A withdrawal (<code>${escapeHtml(p.orderId)}</code>, ₹${p.netAmount}, ${p.method}) failed at FINZO and was refunded.`
       );
     }
   } catch (e) {
@@ -323,6 +327,9 @@ async function processPayout(paymentId) {
   return Payment.findById(p._id);
 }
 
+// `amount` is exactly what the user wants to receive in their bank/wallet.
+// The level's withdraw fee is charged ON TOP of this and taken from their app balance,
+// so the bank/wallet always gets the precise figure the user typed.
 async function createWithdraw(user, amount, method, settings) {
   const w = settings.withdraw;
   if (!w.enabled) throw fail(400, "Withdrawals are currently disabled");
@@ -339,19 +346,33 @@ async function createWithdraw(user, amount, method, settings) {
     throw fail(400, "Invalid FINZO Wallet ID");
   }
 
-  amount = round2(amount);
+  const received = round2(amount);
+  if (!(received > 0)) throw fail(400, "Enter a valid amount");
+  // FINZO's UPI payout only accepts a whole-rupee amount.
+  if (method === "upi" && !Number.isInteger(received)) {
+    throw fail(400, "UPI withdrawals must be a whole rupee amount (no paise)");
+  }
+
   const lvl = (settings.levels || [])[(user.level || 1) - 1] ||
     (settings.levels || [])[0] || { withdrawFeePercent: 0, monthlyWithdrawals: 2 };
   const monthlyMax = lvl.monthlyWithdrawals === undefined || lvl.monthlyWithdrawals === null ? 2 : lvl.monthlyWithdrawals;
 
-  const feeRate = Math.min(0.99, Math.max(0, lvl.withdrawFeePercent) / 100);
   const lim = finzo.payoutLimits(method);
-  const lo = Math.max(Math.ceil(mc.min), Math.ceil(lim.min / (1 - feeRate)));
-  const hi = Math.min(Math.floor(mc.max), Math.floor(lim.max / (1 - feeRate)));
-  if (!(amount > 0) || amount < lo || amount > hi) {
+  let lo = Math.max(Math.ceil(mc.min), lim.min);
+  let hi = Math.min(Math.floor(mc.max), lim.max);
+  if (method === "upi") {
+    lo = Math.ceil(lo);
+    hi = Math.floor(hi);
+  }
+  if (received < lo || received > hi) {
     throw fail(400, `Withdraw must be between ₹${lo} and ₹${hi}`);
   }
-  if (user.balance < amount) throw fail(400, "Insufficient balance");
+
+  // The fee is extra, charged on top of the amount the user receives, and comes
+  // out of their app wallet balance — not out of the payout itself.
+  const fee = round2((received * lvl.withdrawFeePercent) / 100);
+  const totalDebit = round2(received + fee);
+  if (user.balance < totalDebit) throw fail(400, "Insufficient balance");
 
   if (method === "finzo_wallet") {
     const exists = await finzo.walletExists(destination);
@@ -366,21 +387,9 @@ async function createWithdraw(user, amount, method, settings) {
   if (used >= monthlyMax) {
     throw fail(400, `Monthly withdrawal limit reached: ${monthlyMax} per month at your level`);
   }
-  if (day + amount > mc.dailyLimit) {
+  if (day + totalDebit > mc.dailyLimit) {
     throw fail(400, `Daily withdraw limit is ₹${mc.dailyLimit}. Remaining today: ₹${Math.max(0, round2(mc.dailyLimit - day))}`);
   }
-
-  const feeRaw = round2((amount * lvl.withdrawFeePercent) / 100);
-  let net = round2(amount - feeRaw);
-  let fee = feeRaw;
-  // FINZO's UPI payout only accepts a whole-rupee amount (AMOUNT_INVALID otherwise).
-  // Round the net amount down to a whole rupee and let the leftover paise go to the fee,
-  // so amount = fee + net always holds exactly.
-  if (method === "upi") {
-    net = Math.floor(net);
-    fee = round2(amount - net);
-  }
-  if (net <= 0) throw fail(400, "Amount is too small after fees");
 
   const orderId = makeOrderId("WD");
   const payment = await Payment.create({
@@ -388,9 +397,9 @@ async function createWithdraw(user, amount, method, settings) {
     tgId: user.tgId,
     type: "withdraw",
     method,
-    amount,
+    amount: totalDebit, // total taken from the app wallet (received + fee)
     fee,
-    netAmount: net,
+    netAmount: received, // exactly what reaches the user's bank/wallet
     status: "created",
     orderId,
     destination,
@@ -398,23 +407,23 @@ async function createWithdraw(user, amount, method, settings) {
     monthKey: mk,
   });
 
-  const debited = await wallet.debit(user._id, amount, "withdraw", `Withdraw via ${method}`, orderId);
+  const debited = await wallet.debit(user._id, totalDebit, "withdraw", `Withdraw via ${method}`, orderId);
   if (!debited) {
     await Payment.deleteOne({ _id: payment._id });
     throw fail(400, "Insufficient balance");
   }
 
-  const needsApproval = !w.autoPayout || (w.approvalEnabled && amount >= w.approvalAbove);
+  const needsApproval = !w.autoPayout || (w.approvalEnabled && received >= w.approvalAbove);
   if (needsApproval) {
     payment.status = "awaiting_approval";
     await payment.save();
     bot.notifyAdmins(
-      `New withdrawal request: ₹${amount} from ${escapeHtml(fullName(user))} (<code>${user.tgId}</code>). Please review it in the admin panel.`
+      `New withdrawal request: ₹${received} (₹${totalDebit} debited) from ${escapeHtml(fullName(user))} (<code>${user.tgId}</code>). Please review it in the admin panel.`
     );
     bot.notifyUser(
       debited,
-      `Your withdrawal request of ₹${amount} was received and is waiting for approval.`,
-      `আপনার ₹${amount} উইথড্র অনুরোধ পাওয়া গেছে, অনুমোদনের অপেক্ষায় আছে।`
+      `Your withdrawal request of ₹${received} was received and is waiting for approval.`,
+      `আপনার ₹${received} উইথড্র অনুরোধ পাওয়া গেছে, অনুমোদনের অপেক্ষায় আছে।`
     );
     return payment;
   }
